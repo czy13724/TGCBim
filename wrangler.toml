@@ -1,0 +1,23 @@
+name = "tgcontactbot"
+main = "index.js"
+compatibility_date = "2024-02-28"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "TGBOT"
+database_id = ""
+
+[vars]
+# ==========================================
+# REQUIRED: You MUST provide these variables
+# ==========================================
+BOT_TOKEN = ""
+ADMIN_UID = ""
+BOT_SECRET = ""
+
+# ==========================================
+# OPTIONAL: Feature Configuration
+# ==========================================
+BUSINESS_HOURS_START = "09:00"
+BUSINESS_HOURS_END = "22:00"
+BUSINESS_TIMEZONE = "Asia/Shanghai"
