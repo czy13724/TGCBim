@@ -355,7 +355,7 @@ https://tgcontactbot.yourname.workers.dev/registerWebhook
 Set via CF Dashboard or `wrangler secret put` — **never write these in code**:
 
 | 变量名 | 说明 | 是否必填 |
-|--------|------|---------|
+| --- | --- | --- |
 | `BOT_TOKEN` | Telegram Bot Token（BotFather 生成） | ✅ 必填 |
 | `BOT_SECRET` | Webhook 验证密钥，任意随机字符串 | ✅ 必填 |
 | `EXPORT_SECRET` | 导出接口保护密钥（可选） | ❌ 可选 |
@@ -370,28 +370,28 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 ### 必填 / Required
 
 | 变量名 | 默认值 | 说明 |
-|--------|--------|------|
+| --- | --- | --- |
 | `ADMIN_UID` | — | Bot 所有者 Telegram 数字 ID |
 | `ADMIN_GROUP_ID` | — | 管理群组 ID（群模式必填，私聊模式留空） |
 
 ### Bot 消息 / Bot Messages
 
 | 变量名 | 默认值 | 说明 |
-|--------|--------|------|
+| --- | --- | --- |
 | `WELCOME_MESSAGE` | `Welcome to use LeviFREE bot!` | 用户 /start 时显示的欢迎语 |
 | `MAINTENANCE_MESSAGE` | `We are under maintenance...` | 维护模式提示语 |
 
 ### 验证 / Verification
 
 | 变量名 | 默认值 | 说明 |
-|--------|--------|------|
+| --- | --- | --- |
 | `ENABLE_VERIFICATION` | `true` | 是否开启新用户数学验证码 |
 | `VERIFICATION_VALID_HOURS` | `2` | 验证通过后有效期（小时） |
 
 ### 营业时间 / Business Hours
 
 | 变量名 | 默认值 | 说明 |
-|--------|--------|------|
+| --- | --- | --- |
 | `BUSINESS_HOURS_START` | `09:00` | 上班时间（24小时制） |
 | `BUSINESS_HOURS_END` | `22:00` | 下班时间（24小时制） |
 | `BUSINESS_TIMEZONE` | `Asia/Shanghai` | 时区（[IANA 格式](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)） |
@@ -399,7 +399,7 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 ### 垃圾过滤 / Spam Filter
 
 | 变量名 | 默认值 | 说明 |
-|--------|--------|------|
+| --- | --- | --- |
 | `ENABLE_SPAM_FILTER` | `true` | 是否启用垃圾过滤 |
 | `SPAM_KEYWORDS` | `操逼赚钱,...` | 本地关键词黑名单，逗号分隔，支持 `/regex/i` |
 | `SPAM_BLOCKLIST_URL` | GitHub 链接 | 远程关键词黑名单 URL（每月自动刷新，可 `/refreshspam` 强制刷新） |
@@ -411,14 +411,14 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 ### 防刷屏 / Anti-Flood
 
 | 变量名 | 默认值 | 说明 |
-|--------|--------|------|
+| --- | --- | --- |
 | `ANTI_FLOOD_MESSAGES` | `5` | 时间窗口内最多发多少条消息 |
 | `ANTI_FLOOD_SECONDS` | `5` | 时间窗口大小（秒） |
 
 ### 日志与话题 / Logs & Topics
 
 | 变量名 | 默认值 | 说明 |
-|--------|--------|------|
+| --- | --- | --- |
 | `ENV_LOG_RETENTION_DAYS` | `7` | 消息日志保留天数（0 = 不清理） |
 | `AUTO_CLOSE_INACTIVE_HOURS` | `72` | 话题无活动多少小时后自动关闭 |
 | `DELETE_TOPIC_AS_BAN` | `false` | 删除话题是否等同封禁用户 |
@@ -426,13 +426,13 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 ### 广播 / Broadcast
 
 | 变量名 | 默认值 | 说明 |
-|--------|--------|------|
+| --- | --- | --- |
 | `MAX_BROADCAST_BATCH` | `50` | 广播每批发送数量 |
 
 ### 高级 / Advanced
 
 | 变量名 | 默认值 | 说明 |
-|--------|--------|------|
+| --- | --- | --- |
 | `ADMINS` | — | 额外管理员 UID，逗号分隔（如 `uid1,uid2`） |
 | `WHITELIST_URL` | — | 远程白名单 URL（自动跳过验证） |
 | `SECURITY_DB_URL` | — | 外部安全黑名单 URL |
@@ -440,12 +440,40 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 
 ---
 
-## � 命令列表 / Command Reference
+## 🤖 机器人命令快捷菜单 / BotFather Commands
+
+为了方便管理，你可以将以下文本直接发送给 @BotFather 的 `/setcommands` 功能，实现“一键配置机器人菜单”：
+
+```text
+block - 永久封禁用户 / Block a user
+unblock - 解封用户 / Unblock a user
+whitelist - 白名单管理 / Whitelist management
+uid - 获取用户 Telegram ID / Get User ID
+stats - Bot 统计信息 / Bot stats
+listadmins - 查看所有管理员 / List admins
+clear - 清除今日日志（话题内）/ Clear logs
+close - 关闭当前话题 / Close topic
+reopen - 重新开启话题 / Reopen topic
+broadcast - 向所有用户广播消息 / Broadcast
+tpl - 快捷回复模板 / Quick reply templates
+maintenance - 维护模式开关 / Maintenance mode
+addspam - 添加垃圾关键词 / Add spam keyword
+removespam - 删除垃圾关键词 / Remove spam keyword
+listspam - 查看垃圾关键词数量 / List spam keywords
+spamstats - 垃圾拦截统计 / Spam stats
+refreshspam - 从远程刷新黑名单 / Refresh blocklist
+lang - 切换界面语言 / Switch language
+help - 查看命令帮助 / Help
+```
+
+---
+
+## 💬 命令列表 / Command Reference
 
 ### 用户命令 / User Commands
 
 | 命令 | 说明 |
-|------|------|
+| --- | --- |
 | `/start` | 开始使用 / Start the bot |
 
 ### 管理员命令 / Admin Commands
@@ -456,7 +484,7 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 **🔒 用户管理 / User Management**
 
 | 命令 | 说明 |
-|------|------|
+| --- | --- |
 | `/block <id>` 或回复 | 永久封禁用户 / Block a user |
 | `/ban <id>` 或回复 | 封禁（同 /block）/ Alias for /block |
 | `/unblock <id>` 或回复 | 解封用户 / Unblock a user |
@@ -471,7 +499,7 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 **📊 信息查询 / Info & Stats**
 
 | 命令 | 说明 |
-|------|------|
+| --- | --- |
 | `/uid` 或回复 | 获取用户 Telegram ID |
 | `/userinfo` 或回复 | 查看用户详情 |
 | `/stats` | Bot 统计信息（用户数、消息数、拦截数） |
@@ -480,7 +508,7 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 **🗂️ 话题管理 / Topic Management**
 
 | 命令 | 说明 |
-|------|------|
+| --- | --- |
 | `/clear` | 清除今日日志（话题内） |
 | `/close` | 关闭当前话题 |
 | `/reopen` | 重新开启话题 |
@@ -488,7 +516,7 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 **📣 广播与模板 / Broadcast & Templates**
 
 | 命令 | 说明 |
-|------|------|
+| --- | --- |
 | `/broadcast <内容>` | 向所有用户广播消息 |
 | `/tpl add <键> <内容>` | 添加快捷回复模板 |
 | `/tpl del <键>` | 删除模板 |
@@ -498,7 +526,7 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 **🔧 系统管理 / System**
 
 | 命令 | 说明 |
-|------|------|
+| --- | --- |
 | `/maintenance on` | 开启维护模式（用户收到维护提示） |
 | `/maintenance off` | 关闭维护模式 |
 | `/addspam <关键词>` | 添加垃圾关键词 |
@@ -514,7 +542,7 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 ## 🌐 常用端点 / Useful Endpoints
 
 | 地址 | 说明 |
-|------|------|
+| --- | --- |
 | `/registerWebhook` | 注册 Telegram Webhook（部署后访问一次） |
 | `/unRegisterWebhook` | 注销 Webhook |
 | `/health` | 健康检查，返回运行状态 |
