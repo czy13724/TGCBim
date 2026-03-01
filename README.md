@@ -463,6 +463,11 @@ https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands?commands=[{"command":"s
 https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands?commands=[{"command":"start","description":"开始使用%20/%20Start"},{"command":"help","description":"命令帮助%20/%20Help"},{"command":"close","description":"关闭话题%20/%20Close"},{"command":"reopen","description":"开启话题%20/%20Reopen"},{"command":"clear","description":"清除今日日志%20/%20Clear"},{"command":"uid","description":"获取UID%20/%20Get%20ID"},{"command":"whitelist","description":"白名单管理%20/%20Whitelist"},{"command":"block","description":"封禁用户%20/%20Block"},{"command":"unblock","description":"解封用户%20/%20Unblock"},{"command":"stats","description":"统计信息%20/%20Stats"},{"command":"lang","description":"切换语言%20/%20Language"},{"command":"tpl","description":"快捷模板%20/%20Templates"},{"command":"broadcast","description":"发送广播%20/%20Broadcast"},{"command":"listadmins","description":"所有管理员%20/%20Admins"},{"command":"maintenance","description":"维护开关%20/%20Maintenance"},{"command":"spamstats","description":"拦截统计%20/%20Spam%20stats"},{"command":"listspam","description":"拦截词列表%20/%20Spam%20list"},{"command":"addspam","description":"加拦截词%20/%20Add%20spam"},{"command":"removespam","description":"删拦截词%20/%20Del%20spam"},{"command":"refreshspam","description":"刷新黑名单%20/%20Refresh"}]&scope={"type":"chat","chat_id":ADMIN_UID}
 ```
 
+> **浏览器返回以下结果即表示设置成功：**
+> ```json
+> {"ok":true,"result":true}
+> ```
+
 ### 方式二：命令行 cURL (适合 Linux/Mac 用户)
 
 打开终端，替换相应参数后直接运行。
@@ -484,7 +489,8 @@ curl -X POST "https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands" \
 ### 方式三：通过 @BotFather 对话设置 (目前不支持精细化权限)
 > ⚠️ 注意：通过 `@BotFather` 发送文本设置的方法**对所有人都可见**。推荐使用方式一或方式二进行配置。
 
-如果你实在想发给 BotFather，直接复制以下文本发送给它即可：
+你可以将以下文本直接发送给 [@BotFather](https://t.me/botfather) 的 `/setcommands` 功能：
+
 ```text
 start - 开始使用 / Start
 help - 命令帮助 / Help
