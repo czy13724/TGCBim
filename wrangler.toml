@@ -8,61 +8,86 @@ database_name = "TGBOT"
 database_id = ""
 
 # ============================================================
-# ⚠️  SECRETS — Do NOT write real values here!
-#     Set them in CF Dashboard → Workers → Settings → Secrets
-#     Or: wrangler secret put BOT_TOKEN
+# ⚠️  SECRETS — Set in CF Dashboard → Workers → Secrets
+#     Or: wrangler secret put <NAME>
 # ============================================================
-# BOT_TOKEN       = your Telegram bot token
-# BOT_SECRET      = webhook validation secret (any random string)
-# EXPORT_SECRET   = optional, to protect export endpoints
+# BOT_TOKEN       your Telegram bot token
+# BOT_SECRET      webhook validation secret (any random string)
+# EXPORT_SECRET   optional, protects /export endpoint
 
 # ============================================================
-# Required Variables — set in CF Dashboard or here
+# Required
 # ============================================================
 [vars]
-ADMIN_UID = ""       # Your Telegram user ID (owner)
-# ADMIN_GROUP_ID    = "-100xxxxxxxxxx"    # Admin group ID (for Group Mode)
-# ADMINS            = "uid1,uid2"         # Additional admin user IDs
-
-WELCOME_MESSAGE      = "Welcome to use LeviFREE bot!"
-SPAM_BLOCKLIST_URL   = "https://raw.githubusercontent.com/czy13724/czy13724/levi/blocklist.txt"
+ADMIN_UID = ""    # Bot owner Telegram user ID
+# ADMIN_GROUP_ID   = "-100xxxxxxxxxx" # Admin group (for Group Mode)
+# ADMINS           = "uid1,uid2"      # Additional admin user IDs (comma-separated)
 
 # ============================================================
-# Business Hours (optional)
+# Bot Messages
+# ============================================================
+WELCOME_MESSAGE      = "Welcome to use LeviFREE bot!"
+MAINTENANCE_MESSAGE  = "We are under maintenance. Please try again later."
+# START_MSG_URL    = ""               # Remote URL to load start message from
+
+# ============================================================
+# Verification
+# ============================================================
+ENABLE_VERIFICATION      = "true"   # Enable captcha for new users
+VERIFICATION_VALID_HOURS = "2"      # How long verification lasts (hours)
+
+# ============================================================
+# Notification
+# ============================================================
+ENABLE_NOTIFICATION  = "false"      # Send UID notification on new user
+# NOTIFICATION_URL = ""             # Webhook URL for new user notifications
+
+# ============================================================
+# Business Hours
 # ============================================================
 BUSINESS_HOURS_START = "09:00"
 BUSINESS_HOURS_END   = "22:00"
 BUSINESS_TIMEZONE    = "Asia/Shanghai"
 
 # ============================================================
-# Bot Behavior (all optional — override via CF Dashboard)
+# Topic / Group Mode
 # ============================================================
-# WELCOME_MESSAGE          = "欢迎使用！"
-# MAINTENANCE_MESSAGE      = "维护中，请稍后再试。"
-# ENABLE_VERIFICATION      = "true"       # true/false
-# VERIFICATION_VALID_HOURS = "2"          # hours
-# ENABLE_NOTIFICATION      = "false"      # send UID notification on new user
-# AUTO_CLOSE_INACTIVE_HOURS = "72"        # auto-close idle topics after N hours
-# DELETE_TOPIC_AS_BAN      = "false"
+AUTO_CLOSE_INACTIVE_HOURS = "72"    # Auto-close idle topics after N hours
+DELETE_TOPIC_AS_BAN       = "false" # Delete topic = ban user
+GROUP_SPAM_DETECTION      = "true"  # Detect spam in group messages
+GROUP_SPAM_ACTION         = "ban"   # block / ban
+GROUP_ADMIN_PERMISSIONS   = "true"  # Respect group admin permissions
 
 # ============================================================
-# Spam Filter (all optional)
+# Spam Filter
 # ============================================================
-# SPAM_BLOCKLIST_URL  = "https://raw.githubusercontent.com/.../blocklist.txt"
-# SPAM_KEYWORDS       = "keyword1,keyword2"
-# SPAM_ACTION         = "block"           # block / delete
-# DELETE_SPAM_MESSAGE = "true"
-# ENABLE_SPAM_FILTER  = "true"
-# GROUP_SPAM_DETECTION = "true"
-# GROUP_SPAM_ACTION    = "ban"
+ENABLE_SPAM_FILTER   = "true"
+SPAM_ACTION          = "block"   # block / delete
+DELETE_SPAM_MESSAGE  = "true"
+SPAM_KEYWORDS        = "操逼赚钱,挖掘花,招聘花,提供设备,代理花,兼职,招探花"
+SPAM_BLOCKLIST_URL   = "https://raw.githubusercontent.com/czy13724/czy13724/levi/blocklist.txt"
 
 # ============================================================
-# Rate Limiting (optional)
+# Anti-Flood
 # ============================================================
-# ANTI_FLOOD_MESSAGES = "5"   # max messages per window
-# ANTI_FLOOD_SECONDS  = "5"   # window size in seconds
+ANTI_FLOOD_MESSAGES  = "5"  # Max messages per window
+ANTI_FLOOD_SECONDS   = "5"  # Window size in seconds
 
 # ============================================================
-# Log Retention (optional)
+# Broadcast
 # ============================================================
-# ENV_LOG_RETENTION_DAYS = "7"  # keep message_logs for N days (0 = disabled)
+MAX_BROADCAST_BATCH  = "50"
+
+# ============================================================
+# Log Retention
+# ============================================================
+ENV_LOG_RETENTION_DAYS = "7"  # Keep message_logs for N days (0 = disabled)
+
+# ============================================================
+# Advanced / Optional
+# ============================================================
+# WHITELIST_URL        = ""   # Remote URL for whitelisted user IDs
+# SECURITY_DB_URL      = ""   # External security blocklist URL
+# PUBLIC_BASE_URL      = ""   # Public base URL of this worker
+# ENABLE_AUTO_TRANSLATE = "false"
+# TRANSLATE_TARGET_LANG = "en"
