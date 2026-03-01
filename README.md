@@ -336,8 +336,9 @@ git clone https://github.com/levi4212/TgContactBot.git
 cd TgContactBot
 npm install
 npx wrangler deploy   # 使用 wrangler 部署（需登录 CF），或将打包产物手动上传
+```
 
-建议直接使用 **方法二（GitHub Actions）** 自动上传代码。这样可以实现两全其美：在 CF 网页端建库和管理，在 GitHub 网页端自动打包发布。
+> 💡 建议直接使用 **方法二（GitHub Actions）** 自动上传代码。这样可以实现两全其美：在 CF 网页端建库和管理，在 GitHub 网页端自动打包发布。
 
 ### 第六步：注册 Webhook
 
