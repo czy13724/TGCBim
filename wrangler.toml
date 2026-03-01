@@ -5,7 +5,7 @@ compatibility_date = "2024-02-28"
 [[d1_databases]]
 binding = "DB"
 database_name = "tgcontactbot"
-database_id = ""
+database_id = "" # 留空则由 Secret 注入 / Leave empty; value is injected via Secret at deploy time
 
 # ==============================================================
 # ⚠️  密钥 SECRETS — 不要写在这里！
