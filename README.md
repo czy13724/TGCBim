@@ -291,8 +291,11 @@ https://tgcontactbot.yourname.workers.dev/registerWebhook
 
 ## 方法三：CF Dashboard 网页端控制台操作
 
-> 适合：不想在本地安装运行环境，主要使用浏览器进行初始设置和环境变量管理。  
-> Best for: dashboard-based initialization and environment management.
+> 适合：不想在本地安装任何工具，全程使用浏览器操作。  
+> Best for: no local tools — everything done in the browser.
+
+> ⚠️ 注意：此方法仍需要在某台有 Node.js 的机器上执行**一次**数据库初始化。  
+> Note: D1 schema initialization still requires a one-time CLI run.
 
 ### 第一步：在 CF Dashboard 创建 Worker
 
@@ -326,9 +329,15 @@ https://tgcontactbot.yourname.workers.dev/registerWebhook
 
 ### 第五步：上传代码（配合 GitHub Actions）
 
-> ⚠️ 由于本项目含多个源代码文件，Cloudflare 网页编辑器不支持直接上传多文件项目。
+> ⚠️ 由于本项目含多个源代码文件，Cloudflare 网页编辑器不支持直接上传多文件项目。需本地打包后上传：
 
-请直接使用 **方法二（GitHub Actions）** 自动上传代码。这样可以实现两全其美：在 CF 网页端建库和管理，在 GitHub 网页端自动打包发布。
+```bash
+git clone https://github.com/levi4212/TgContactBot.git
+cd TgContactBot
+npm install
+npx wrangler deploy   # 使用 wrangler 部署（需登录 CF），或将打包产物手动上传
+
+建议直接使用 **方法二（GitHub Actions）** 自动上传代码。这样可以实现两全其美：在 CF 网页端建库和管理，在 GitHub 网页端自动打包发布。
 
 ### 第六步：注册 Webhook
 
