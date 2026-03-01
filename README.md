@@ -440,11 +440,37 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 
 ---
 
-## 🤖 机器人命令快捷菜单 / BotFather Commands
+## 🤖 设置机器人菜单（侧边栏命令）/ Set Bot Commands
 
-为了方便管理，你可以将以下文本直接发送给 @BotFather 的 `/setcommands` 功能，实现“一键配置机器人菜单”：
+如果不配置机器人命令，用户将无法在输入框旁边看到快捷命令菜单。
+你可以通过以下 **三种方式之一** 来一键配置。
+
+### 方式一：浏览器 URL 一键请求（最简单）
+
+只需将下方的 `YOUR_BOT_TOKEN` 替换为你的真实 Token，然后复制整段 URL 到**浏览器地址栏**访问即可：
 
 ```text
+https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands?commands=[{"command":"start","description":"开始使用%20/%20Start"},{"command":"block","description":"封禁用户%20/%20Block"},{"command":"unblock","description":"解封用户%20/%20Unblock"},{"command":"whitelist","description":"白名单管理%20/%20Whitelist"},{"command":"uid","description":"获取UID%20/%20Get%20ID"},{"command":"stats","description":"统计信息%20/%20Stats"},{"command":"listadmins","description":"所有管理员%20/%20Admins"},{"command":"clear","description":"清除今日日志%20/%20Clear"},{"command":"close","description":"关闭话题%20/%20Close"},{"command":"reopen","description":"开启话题%20/%20Reopen"},{"command":"broadcast","description":"发送广播%20/%20Broadcast"},{"command":"tpl","description":"快捷模板%20/%20Templates"},{"command":"maintenance","description":"维护开关%20/%20Maintenance"},{"command":"addspam","description":"加拦截词%20/%20Add%20spam"},{"command":"removespam","description":"删拦截词%20/%20Del%20spam"},{"command":"listspam","description":"拦截词列表%20/%20Spam%20list"},{"command":"spamstats","description":"拦截统计%20/%20Spam%20stats"},{"command":"refreshspam","description":"刷新黑名单%20/%20Refresh"},{"command":"lang","description":"切换语言%20/%20Language"},{"command":"help","description":"命令帮助%20/%20Help"}]
+```
+
+页面返回 `{"ok":true,"result":true}` 即表示设置成功。
+
+### 方式二：命令行 cURL (适合 Linux/Mac 用户)
+
+打开终端，替换 `YOUR_BOT_TOKEN` 后直接运行：
+
+```bash
+curl -X POST "https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands" \
+-H "Content-Type: application/json" \
+-d '{"commands": [{"command":"start","description":"开始使用 / Start"}, {"command":"block","description":"封禁用户 / Block"}, {"command":"unblock","description":"解封用户 / Unblock"}, {"command":"whitelist","description":"白名单管理 / Whitelist"}, {"command":"uid","description":"获取UID / Get ID"}, {"command":"stats","description":"统计信息 / Stats"}, {"command":"listadmins","description":"所有管理员 / Admins"}, {"command":"clear","description":"清除今日日志 / Clear"}, {"command":"close","description":"关闭话题 / Close"}, {"command":"reopen","description":"开启话题 / Reopen"}, {"command":"broadcast","description":"发送广播 / Broadcast"}, {"command":"tpl","description":"快捷模板 / Templates"}, {"command":"maintenance","description":"维护开关 / Maintenance"}, {"command":"addspam","description":"加拦截词 / Add spam"}, {"command":"removespam","description":"删拦截词 / Del spam"}, {"command":"listspam","description":"拦截词列表 / Spam list"}, {"command":"spamstats","description":"拦截统计 / Spam stats"}, {"command":"refreshspam","description":"刷新黑名单 / Refresh"}, {"command":"lang","description":"切换语言 / Language"}, {"command":"help","description":"命令帮助 / Help"}]}'
+```
+
+### 方式三：通过 @BotFather 对话设置
+
+你可以将以下文本直接发送给 [@BotFather](https://t.me/botfather) 的 `/setcommands` 功能：
+
+```text
+start - 开始使用 / Start
 block - 永久封禁用户 / Block a user
 unblock - 解封用户 / Unblock a user
 whitelist - 白名单管理 / Whitelist management
