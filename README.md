@@ -85,8 +85,8 @@ npm install
 ### 第四步：创建 D1 数据库 / Step 4: Create D1 Database
 
 ```bash
-# 创建数据库（名字叫 TGBOT）/ Create the database
-wrangler d1 create TGBOT
+# 创建数据库 / Create the database
+wrangler d1 create tgcontactbot
 ```
 
 命令成功后会输出类似内容 / The output will look like:
@@ -94,7 +94,7 @@ wrangler d1 create TGBOT
 ```toml
 [[d1_databases]]
 binding = "DB"
-database_name = "TGBOT"
+database_name = "tgcontactbot"
 database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  ← 复制这个
 ```
 
@@ -104,7 +104,7 @@ database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  ← 复制这个
 然后推送数据库表结构 / Then apply the schema:
 
 ```bash
-wrangler d1 execute TGBOT --file=schema.sql --remote
+wrangler d1 execute tgcontactbot --file=schema.sql --remote
 ```
 
 ---
@@ -365,7 +365,7 @@ A: `echo "新Token" | wrangler secret put BOT_TOKEN`，然后重新访问 `/regi
 A: 运行 `wrangler tail` 可实时查看 Worker 日志。
 
 **Q: 如何重置数据库？**  
-A: 重新执行 `wrangler d1 execute TGBOT --file=schema.sql --remote`（⚠️ 会清空所有数据！）
+A: 重新执行 `wrangler d1 execute tgcontactbot --file=schema.sql --remote`（⚠️ 会清空所有数据！）
 
 ---
 
