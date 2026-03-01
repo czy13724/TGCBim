@@ -242,9 +242,24 @@ jobs:
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
 ```
 
-### 第四步：配置变量并推送
+### 第四步：配置变量并触发首次部署
 
-编辑 `wrangler.toml` 中的 `ADMIN_UID` 等必填变量，然后：
+**选项 A：网页端（无需本地工具）**
+
+1. 打开你 Fork 的 GitHub 仓库，找到 `wrangler.toml` 文件
+2. 点击右上角铅笔 ✏️ 图标进入编辑
+3. 修改必填变量：
+
+```toml
+ADMIN_UID       = "你的Telegram数字ID"
+WELCOME_MESSAGE = "你的欢迎语"
+```
+
+4. 页面底部填写 commit 信息，点击 **Commit changes**
+
+GitHub Actions 会立即自动触发部署 🚀
+
+**选项 B：本地 git**
 
 ```bash
 git add .
@@ -252,7 +267,7 @@ git commit -m "feat: initial deploy config"
 git push origin master
 ```
 
-GitHub Actions 会自动触发部署。在仓库的 **Actions** 标签页可查看部署状态。
+在仓库的 **Actions** 标签页可查看部署进度和日志。
 
 ### 第五步：注册 Webhook（仅首次）
 
