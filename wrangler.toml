@@ -7,17 +7,59 @@ binding = "DB"
 database_name = "TGBOT"
 database_id = ""
 
-[vars]
-# ==========================================
-# REQUIRED: You MUST provide these variables
-# ==========================================
-BOT_TOKEN = ""
-ADMIN_UID = ""
-BOT_SECRET = ""
+# ============================================================
+# ⚠️  SECRETS — Do NOT write real values here!
+#     Set them in CF Dashboard → Workers → Settings → Secrets
+#     Or: wrangler secret put BOT_TOKEN
+# ============================================================
+# BOT_TOKEN       = your Telegram bot token
+# BOT_SECRET      = webhook validation secret (any random string)
+# EXPORT_SECRET   = optional, to protect export endpoints
 
-# ==========================================
-# OPTIONAL: Feature Configuration
-# ==========================================
+# ============================================================
+# Required Variables — set in CF Dashboard or here
+# ============================================================
+[vars]
+ADMIN_UID = ""       # Your Telegram user ID (owner)
+# ADMIN_GROUP_ID    = "-100xxxxxxxxxx"    # Admin group ID (for Group Mode)
+# ADMINS            = "uid1,uid2"         # Additional admin user IDs
+
+# ============================================================
+# Business Hours (optional)
+# ============================================================
 BUSINESS_HOURS_START = "09:00"
-BUSINESS_HOURS_END = "22:00"
-BUSINESS_TIMEZONE = "Asia/Shanghai"
+BUSINESS_HOURS_END   = "22:00"
+BUSINESS_TIMEZONE    = "Asia/Shanghai"
+
+# ============================================================
+# Bot Behavior (all optional — override via CF Dashboard)
+# ============================================================
+# WELCOME_MESSAGE          = "欢迎使用！"
+# MAINTENANCE_MESSAGE      = "维护中，请稍后再试。"
+# ENABLE_VERIFICATION      = "true"       # true/false
+# VERIFICATION_VALID_HOURS = "2"          # hours
+# ENABLE_NOTIFICATION      = "false"      # send UID notification on new user
+# AUTO_CLOSE_INACTIVE_HOURS = "72"        # auto-close idle topics after N hours
+# DELETE_TOPIC_AS_BAN      = "false"
+
+# ============================================================
+# Spam Filter (all optional)
+# ============================================================
+# SPAM_BLOCKLIST_URL  = "https://raw.githubusercontent.com/.../blocklist.txt"
+# SPAM_KEYWORDS       = "keyword1,keyword2"
+# SPAM_ACTION         = "block"           # block / delete
+# DELETE_SPAM_MESSAGE = "true"
+# ENABLE_SPAM_FILTER  = "true"
+# GROUP_SPAM_DETECTION = "true"
+# GROUP_SPAM_ACTION    = "ban"
+
+# ============================================================
+# Rate Limiting (optional)
+# ============================================================
+# ANTI_FLOOD_MESSAGES = "5"   # max messages per window
+# ANTI_FLOOD_SECONDS  = "5"   # window size in seconds
+
+# ============================================================
+# Log Retention (optional)
+# ============================================================
+# ENV_LOG_RETENTION_DAYS = "7"  # keep message_logs for N days (0 = disabled)
