@@ -446,30 +446,45 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 如果不配置机器人命令，用户将无法在输入框旁边看到快捷命令菜单。
 你可以通过以下 **三种方式之一** 来一键配置。
 
+> 💡 **最佳实践说明：**
+> 普通用户仅需显示 `/start`，长长的防黑产、白名单等命令只应让**管理员**看到。因此我们分两步设置：第一步为所有人设置基础命令，第二步为您的管理员账号单独下发完整菜单。
+
 ### 方式一：浏览器 URL 一键请求（最简单）
 
-只需将下方的 `YOUR_BOT_TOKEN` 替换为你的真实 Token，然后复制整段 URL 到**浏览器地址栏**访问即可：
-
+**第一步：给所有普通用户设置基础命令**  
+只需将下方的 `YOUR_BOT_TOKEN` 替换为你的真实 Token，然后复制到**浏览器地址栏**访问：
 ```text
-https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands?commands=[{"command":"start","description":"开始使用%20/%20Start"},{"command":"help","description":"命令帮助%20/%20Help"},{"command":"close","description":"关闭话题%20/%20Close"},{"command":"reopen","description":"开启话题%20/%20Reopen"},{"command":"clear","description":"清除今日日志%20/%20Clear"},{"command":"uid","description":"获取UID%20/%20Get%20ID"},{"command":"whitelist","description":"白名单管理%20/%20Whitelist"},{"command":"block","description":"封禁用户%20/%20Block"},{"command":"unblock","description":"解封用户%20/%20Unblock"},{"command":"stats","description":"统计信息%20/%20Stats"},{"command":"lang","description":"切换语言%20/%20Language"},{"command":"tpl","description":"快捷模板%20/%20Templates"},{"command":"broadcast","description":"发送广播%20/%20Broadcast"},{"command":"listadmins","description":"所有管理员%20/%20Admins"},{"command":"maintenance","description":"维护开关%20/%20Maintenance"},{"command":"spamstats","description":"拦截统计%20/%20Spam%20stats"},{"command":"listspam","description":"拦截词列表%20/%20Spam%20list"},{"command":"addspam","description":"加拦截词%20/%20Add%20spam"},{"command":"removespam","description":"删拦截词%20/%20Del%20spam"},{"command":"refreshspam","description":"刷新黑名单%20/%20Refresh"}]
+https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands?commands=[{"command":"start","description":"开始使用%20/%20Start"}]&scope={"type":"default"}
 ```
 
-页面返回 `{"ok":true,"result":true}` 即表示设置成功。
+**第二步：给管理员账号设置专属完整菜单**  
+将 `YOUR_BOT_TOKEN` 换成 Token，**并将 `ADMIN_UID` 换成你的管理员数字 ID**，复制到浏览器访问：
+```text
+https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands?commands=[{"command":"start","description":"开始使用%20/%20Start"},{"command":"help","description":"命令帮助%20/%20Help"},{"command":"close","description":"关闭话题%20/%20Close"},{"command":"reopen","description":"开启话题%20/%20Reopen"},{"command":"clear","description":"清除今日日志%20/%20Clear"},{"command":"uid","description":"获取UID%20/%20Get%20ID"},{"command":"whitelist","description":"白名单管理%20/%20Whitelist"},{"command":"block","description":"封禁用户%20/%20Block"},{"command":"unblock","description":"解封用户%20/%20Unblock"},{"command":"stats","description":"统计信息%20/%20Stats"},{"command":"lang","description":"切换语言%20/%20Language"},{"command":"tpl","description":"快捷模板%20/%20Templates"},{"command":"broadcast","description":"发送广播%20/%20Broadcast"},{"command":"listadmins","description":"所有管理员%20/%20Admins"},{"command":"maintenance","description":"维护开关%20/%20Maintenance"},{"command":"spamstats","description":"拦截统计%20/%20Spam%20stats"},{"command":"listspam","description":"拦截词列表%20/%20Spam%20list"},{"command":"addspam","description":"加拦截词%20/%20Add%20spam"},{"command":"removespam","description":"删拦截词%20/%20Del%20spam"},{"command":"refreshspam","description":"刷新黑名单%20/%20Refresh"}]&scope={"type":"chat","chat_id":ADMIN_UID}
+```
 
 ### 方式二：命令行 cURL (适合 Linux/Mac 用户)
 
-打开终端，替换 `YOUR_BOT_TOKEN` 后直接运行：
+打开终端，替换相应参数后直接运行。
 
+**1. 配置全员可见的精简菜单**：
 ```bash
 curl -X POST "https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands" \
 -H "Content-Type: application/json" \
--d '{"commands": [{"command":"start","description":"开始使用 / Start"}, {"command":"help","description":"命令帮助 / Help"}, {"command":"close","description":"关闭话题 / Close"}, {"command":"reopen","description":"开启话题 / Reopen"}, {"command":"clear","description":"清除今日日志 / Clear"}, {"command":"uid","description":"获取UID / Get ID"}, {"command":"whitelist","description":"白名单管理 / Whitelist"}, {"command":"block","description":"封禁用户 / Block"}, {"command":"unblock","description":"解封用户 / Unblock"}, {"command":"stats","description":"统计信息 / Stats"}, {"command":"lang","description":"切换语言 / Language"}, {"command":"tpl","description":"快捷模板 / Templates"}, {"command":"broadcast","description":"发送广播 / Broadcast"}, {"command":"listadmins","description":"所有管理员 / Admins"}, {"command":"maintenance","description":"维护开关 / Maintenance"}, {"command":"spamstats","description":"拦截统计 / Spam stats"}, {"command":"listspam","description":"拦截词列表 / Spam list"}, {"command":"addspam","description":"加拦截词 / Add spam"}, {"command":"removespam","description":"删拦截词 / Del spam"}, {"command":"refreshspam","description":"刷新黑名单 / Refresh"}]}'
+-d '{"commands": [{"command":"start","description":"开始使用 / Start"}], "scope": {"type": "default"}}'
 ```
 
-### 方式三：通过 @BotFather 对话设置
+**2. 配置管理员专属完整菜单**（注意替换结尾 `YOUR_ADMIN_UID`）：
+```bash
+curl -X POST "https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands" \
+-H "Content-Type: application/json" \
+-d '{"commands": [{"command":"start","description":"开始使用 / Start"}, {"command":"help","description":"命令帮助 / Help"}, {"command":"close","description":"关闭话题 / Close"}, {"command":"reopen","description":"开启话题 / Reopen"}, {"command":"clear","description":"清除今日日志 / Clear"}, {"command":"uid","description":"获取UID / Get ID"}, {"command":"whitelist","description":"白名单管理 / Whitelist"}, {"command":"block","description":"封禁用户 / Block"}, {"command":"unblock","description":"解封用户 / Unblock"}, {"command":"stats","description":"统计信息 / Stats"}, {"command":"lang","description":"切换语言 / Language"}, {"command":"tpl","description":"快捷模板 / Templates"}, {"command":"broadcast","description":"发送广播 / Broadcast"}, {"command":"listadmins","description":"所有管理员 / Admins"}, {"command":"maintenance","description":"维护开关 / Maintenance"}, {"command":"spamstats","description":"拦截统计 / Spam stats"}, {"command":"listspam","description":"拦截词列表 / Spam list"}, {"command":"addspam","description":"加拦截词 / Add spam"}, {"command":"removespam","description":"删拦截词 / Del spam"}, {"command":"refreshspam","description":"刷新黑名单 / Refresh"}], "scope": {"type": "chat", "chat_id": YOUR_ADMIN_UID}}'
+```
 
-你可以将以下文本直接发送给 [@BotFather](https://t.me/botfather) 的 `/setcommands` 功能：
+### 方式三：通过 @BotFather 对话设置 (目前不支持精细化权限)
+> ⚠️ 注意：通过 `@BotFather` 发送文本设置的方法**对所有人都可见**。推荐使用方式一或方式二进行配置。
 
+如果你实在想发给 BotFather，直接复制以下文本发送给它即可：
 ```text
 start - 开始使用 / Start
 help - 命令帮助 / Help
