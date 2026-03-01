@@ -41,38 +41,43 @@ TgContactBot/
 
 ## 🚀 部署指南 / Deployment Guide
 
-### 第一步：准备工作 / Step 1: Prerequisites
+> 本项目提供三种部署方式，选择最适合你的一种即可。  
+> Three deployment methods are available — pick the one that fits your workflow.
 
-**1.1 创建 Telegram Bot / Create a Telegram Bot**
-
-1. 打开 Telegram，搜索 [@BotFather](https://t.me/botfather)
-2. 发送 `/newbot`，按提示输入机器人名称和用户名
-3. BotFather 会返回你的 **Bot Token**，格式如：`123456789:AAFxxx...`，妥善保存
-
-**1.2 获取你的 Telegram UID / Get Your Telegram UID**
-
-- 发消息给 [@userinfobot](https://t.me/userinfobot)，它会回复你的数字 **User ID**（如 `YOUR_ADMIN_UID`）
-
-**1.3 安装 Node.js / Install Node.js**
-
-- 前往 [nodejs.org](https://nodejs.org) 下载安装，选 LTS 版本即可
+| 方式 | Method | 适合场景 |
+|------|--------|----------|
+| ⭐ 方法一：Wrangler CLI | Local CLI Deploy | 初次部署，完整控制 |
+| 🤖 方法二：GitHub Actions | CI/CD Auto-Deploy | 长期维护，推送即部署 |
+| 🌐 方法三：CF Dashboard | Dashboard-Assisted | 无需本地环境，网页操作 |
 
 ---
 
-### 第二步：安装 Wrangler 并登录 / Step 2: Install Wrangler & Login
+### 🔖 前置准备（所有方法共用）/ Common Prerequisites
+
+**获取 Bot Token / Get a Bot Token**
+
+1. 打开 Telegram，搜索 [@BotFather](https://t.me/botfather)，发送 `/newbot`
+2. 按提示输入名称和用户名，获得 **Bot Token**（格式：`123456:ABC...`）
+
+**获取你的 Telegram UID / Get Your Telegram UID**
+
+- 发消息给 [@userinfobot](https://t.me/userinfobot)，获取你的数字 **User ID**（如 `YOUR_ADMIN_UID`）
+
+---
+
+## 方法一：Wrangler CLI 本地部署（推荐初次部署）
+
+> 适合：有本地开发环境，想完整掌控配置。  
+> Best for: full control and initial setup.
+
+### 第一步：安装 Wrangler 并登录
 
 ```bash
-# 安装 Wrangler（全局）/ Install Wrangler globally
-npm install -g wrangler
-
-# 登录 Cloudflare 账号（会弹出浏览器页面，点 Allow 即可）
-# Login to Cloudflare (browser will open, click Allow)
-wrangler login
+npm install -g wrangler    # 安装 / Install
+wrangler login             # 登录 CF（弹出浏览器授权）/ Login to Cloudflare
 ```
 
----
-
-### 第三步：克隆项目 / Step 3: Clone the Project
+### 第二步：克隆项目并安装依赖
 
 ```bash
 git clone https://github.com/levi4212/TgContactBot.git
@@ -80,101 +85,204 @@ cd TgContactBot
 npm install
 ```
 
----
-
-### 第四步：创建 D1 数据库 / Step 4: Create D1 Database
+### 第三步：创建 D1 数据库
 
 ```bash
-# 创建数据库 / Create the database
 wrangler d1 create tgcontactbot
 ```
 
-命令成功后会输出类似内容 / The output will look like:
+将输出的 `database_id` 复制进 `wrangler.toml`：
 
 ```toml
 [[d1_databases]]
 binding = "DB"
 database_name = "tgcontactbot"
-database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  ← 复制这个
+database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"   ← 替换这里
 ```
 
-> ⚠️ **将 `database_id` 替换进 `wrangler.toml` 对应位置！**  
-> Replace the `database_id` in your `wrangler.toml` file.
-
-然后推送数据库表结构 / Then apply the schema:
+然后推送数据库表结构：
 
 ```bash
 wrangler d1 execute tgcontactbot --file=schema.sql --remote
 ```
 
----
+### 第四步：设置密钥（Secrets）
 
-### 第五步：配置密钥（Secrets）/ Step 5: Set Secrets
-
-> ⚠️ 密钥**不要**写进 `wrangler.toml`（会上传到 GitHub！）  
-> Secrets must **NOT** be written in `wrangler.toml` (they'd be exposed on GitHub!)
-
-通过命令行将密钥安全地上传到 Cloudflare / Upload secrets securely via CLI:
+> ⚠️ `BOT_TOKEN` 和 `BOT_SECRET` 不要写进 `wrangler.toml`！  
+> Never write secrets into `wrangler.toml`!
 
 ```bash
-# Bot Token（必填 / Required）
-echo "你的Bot Token" | wrangler secret put BOT_TOKEN
-
-# Webhook 验证密钥，随机字符串即可（必填 / Required）
-# Any random string, e.g. a UUID or long password
-echo "随机字符串" | wrangler secret put BOT_SECRET
+echo "你的BotToken" | wrangler secret put BOT_TOKEN
+echo "任意随机字符串" | wrangler secret put BOT_SECRET
 ```
 
-也可以在 **CF Dashboard → Workers → tgcontactbot → Settings → Secrets** 里手动添加。  
-Or add them manually in **CF Dashboard → Workers → tgcontactbot → Settings → Secrets**.
+### 第五步：配置变量
 
----
-
-### 第六步：配置变量 / Step 6: Configure Variables
-
-打开 `wrangler.toml`，修改 `[vars]` 区块中的必填项：  
-Open `wrangler.toml` and update the required values in the `[vars]` section:
+编辑 `wrangler.toml`，修改 `[vars]` 中的必填项：
 
 ```toml
-[vars]
-ADMIN_UID = "你的Telegram数字ID"  # 必填 / Required
-WELCOME_MESSAGE = "你的欢迎语"    # 可选，建议修改 / Recommended
+ADMIN_UID       = "你的Telegram数字ID"
+WELCOME_MESSAGE = "欢迎使用！"
 ```
 
-其他变量均已有默认值，按需修改（详见下方[完整变量说明](#-配置变量说明--configuration-variables)）。  
-All other variables have defaults and can be left as-is or tuned later.
-
----
-
-### 第七步：部署 / Step 7: Deploy
+### 第六步：部署
 
 ```bash
 wrangler deploy
 ```
 
-部署成功后会输出你的 Worker 地址，如：  
-On success you'll see your Worker URL, e.g.:
+### 第七步：注册 Webhook
 
-```
-https://tgcontactbot.yourname.workers.dev
-```
-
----
-
-### 第八步：注册 Webhook / Step 8: Register Webhook
-
-在浏览器中访问以下地址（将域名替换为你自己的）：  
-Visit this URL in your browser (replace with your worker URL):
+浏览器访问（替换为你的 Worker 域名）：
 
 ```
 https://tgcontactbot.yourname.workers.dev/registerWebhook
 ```
 
-如果返回 `"ok": true, "result": true`，说明 Webhook 注册成功！  
-If you see `"ok": true, "result": true`, the webhook is active — you're done! 🎉
+返回 `"ok": true` 即表示成功 🎉
 
-> 💡 以后更新代码只需重新运行 `wrangler deploy` 即可，无需再次注册 Webhook。  
-> Future updates only need `wrangler deploy` — no need to re-register the webhook.
+> 💡 以后更新代码只需 `wrangler deploy`，无需重新注册 Webhook。
+
+---
+
+## 方法二：GitHub Actions 自动化部署（推荐长期维护）
+
+> 适合：代码托管在 GitHub，希望每次 `git push` 自动触发部署。  
+> Best for: automated CI/CD — every push to `master` auto-deploys.
+
+### 第一步：Fork 并配置仓库
+
+Fork 本项目到你的 GitHub，然后在仓库的 **Settings → Secrets and variables → Actions** 中添加以下 Secret：
+
+| Secret 名称 | 值 | 说明 |
+|-------------|-----|------|
+| `CF_API_TOKEN` | CF API Token | 前往 [CF Dashboard → My Profile → API Tokens](https://dash.cloudflare.com/profile/api-tokens) 创建，选择 **Edit Cloudflare Workers** 模板 |
+| `CF_ACCOUNT_ID` | CF 账户 ID | 在 CF Dashboard 右侧栏可找到 |
+
+### 第二步：创建 D1 数据库和密钥（仅首次）
+
+> 首次仍需要本地执行一次：
+
+```bash
+npm install -g wrangler
+wrangler login
+
+# 创建数据库
+wrangler d1 create tgcontactbot
+# 将输出的 database_id 更新到 wrangler.toml 并 commit
+
+# 推送表结构
+wrangler d1 execute tgcontactbot --file=schema.sql --remote
+
+# 设置密钥
+echo "你的BotToken" | wrangler secret put BOT_TOKEN
+echo "随机字符串" | wrangler secret put BOT_SECRET
+```
+
+### 第三步：创建 GitHub Actions 工作流
+
+在项目根目录创建 `.github/workflows/deploy.yml`：
+
+```yaml
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+```
+
+### 第四步：配置变量并推送
+
+编辑 `wrangler.toml` 中的 `ADMIN_UID` 等必填变量，然后：
+
+```bash
+git add .
+git commit -m "feat: initial deploy config"
+git push origin master
+```
+
+GitHub Actions 会自动触发部署。在仓库的 **Actions** 标签页可查看部署状态。
+
+### 第五步：注册 Webhook（仅首次）
+
+```
+https://tgcontactbot.yourname.workers.dev/registerWebhook
+```
+
+> 💡 之后每次 `git push` 都会自动重新部署，无需任何手动操作。
+
+---
+
+## 方法三：CF Dashboard 网页端（无需本地环境）
+
+> 适合：不想在本地安装任何工具，全程使用浏览器操作。  
+> Best for: no local tools — everything done in the browser.
+
+> ⚠️ 注意：此方法仍需要在某台有 Node.js 的机器上执行**一次**数据库初始化。  
+> Note: D1 schema initialization still requires a one-time CLI run.
+
+### 第一步：在 CF Dashboard 创建 Worker
+
+1. 前往 [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages**
+2. 点击 **Create application → Create Worker**
+3. 命名为 `tgcontactbot`，点击 **Deploy**
+
+### 第二步：在 CF Dashboard 创建 D1 数据库
+
+1. 左侧导航 → **D1 SQL Database → Create database**
+2. 命名为 `tgcontactbot`，选择区域，点击 **Create**
+3. 在数据库详情页 → **Console** 标签 → 粘贴 `schema.sql` 内容 → **Execute**
+
+### 第三步：绑定数据库到 Worker
+
+1. 进入 Worker `tgcontactbot` → **Settings → Bindings**
+2. 点击 **Add binding → D1 Database**
+3. Variable name 填 `DB`，选择刚创建的 `tgcontactbot` 数据库
+
+### 第四步：设置密钥和变量
+
+进入 Worker → **Settings → Environment Variables**：
+
+| 类型 | 名称 | 值 |
+|------|------|----|
+| Secret（加密存储）🔒 | `BOT_TOKEN` | 你的 Bot Token |
+| Secret（加密存储）🔒 | `BOT_SECRET` | 任意随机字符串 |
+| Variable | `ADMIN_UID` | 你的 Telegram 数字 ID |
+| Variable | `WELCOME_MESSAGE` | 欢迎语 |
+| 其他变量... | 参考[配置说明](#-配置变量说明--configuration-variables) | |
+
+### 第五步：上传代码
+
+由于本项目是多文件 ES Module，需本地打包后上传：
+
+```bash
+git clone https://github.com/levi4212/TgContactBot.git
+cd TgContactBot
+npm install
+npx wrangler deploy   # 使用 wrangler 部署（需登录 CF），或将打包产物手动上传
+```
+
+> 💡 推荐结合 **方法二（GitHub Actions）** 实现自动上传，其他配置均在 Dashboard 完成。
+
+### 第六步：注册 Webhook
+
+浏览器访问：
+
+```
+https://tgcontactbot.yourname.workers.dev/registerWebhook
+```
 
 ---
 
