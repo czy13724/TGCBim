@@ -593,6 +593,13 @@ A: 运行 `wrangler tail` 可实时查看 Worker 日志。
 **Q: 如何重置数据库？**  
 A: 重新执行 `wrangler d1 execute tgcontactbot --file=schema.sql --remote`（⚠️ 会清空所有数据！）
 
+**Q: 设置了机器人命令，但在 Telegram 里还是显示旧的命令不更新怎么办？**  
+A: Telegram 客户端有比较顽固的本地历史缓存，且命令会在不同范围内独立缓存（如群聊、私聊、特定管理员等）。如果发现没更新，请尝试以下方法：
+1. **清理本地缓存**：彻底强杀/退出 Telegram 客户端进程（后台划掉）后重新打开，或在聊天框随便发送一条消息，触发客户端重新向云端同步菜单。
+2. **删除对话重建**：长按/右键删除与该 Bot 的当前所有聊天记录进程，然后再重新搜索并点击 Start 进入（最有效）。
+3. **API 强制重置**：如果上述方法都无效，说明该对话框内残留了特殊范围级别的命令缓存。可借用 API 强制删除私聊/特定群等范围的旧命令配置：
+   `curl -X POST "https://api.telegram.org/bot<你的Token>/deleteMyCommands" -d '{"scope": {"type": "all_private_chats"}}' -H "Content-Type: application/json"`
+
 ---
 
 *Powered by Cloudflare Workers + D1 · Built for reliability and speed*
