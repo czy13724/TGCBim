@@ -112,20 +112,20 @@ wrangler d1 execute tgcontactbot --file=schema.sql --remote
 
 ### 第四步：设置密钥（Secrets）
 
-> ⚠️ `BOT_TOKEN` 和 `BOT_SECRET` 不要写进 `wrangler.toml`！  
+> ⚠️ `ADMIN_UID` 等私密信息不要写进 `wrangler.toml`（防止公开仓库泄露隐私）！  
 > Never write secrets into `wrangler.toml`!
 
 ```bash
+echo "你的Telegram数字ID" | wrangler secret put ADMIN_UID
 echo "你的BotToken" | wrangler secret put BOT_TOKEN
 echo "任意随机字符串" | wrangler secret put BOT_SECRET
 ```
 
-### 第五步：配置变量
+### 第五步：配置非敏感变量
 
-编辑 `wrangler.toml`，修改 `[vars]` 中的必填项：
+编辑 `wrangler.toml`，修改 `[vars]` 中的其余项：
 
 ```toml
-ADMIN_UID       = "你的Telegram数字ID"
 WELCOME_MESSAGE = "欢迎使用！"
 ```
 
@@ -160,8 +160,11 @@ Fork 本项目到你的 GitHub，然后在仓库的 **Settings → Secrets and v
 
 | Secret 名称 | 值 | 说明 |
 |-------------|-----|------|
-| `CF_API_TOKEN` | CF API Token | 前往 [CF Dashboard → My Profile → API Tokens](https://dash.cloudflare.com/profile/api-tokens) 创建，选择 **Edit Cloudflare Workers** 模板 |
-| `CF_ACCOUNT_ID` | CF 账户 ID | 在 CF Dashboard 右侧栏可找到 |
+| `CF_API_TOKEN` | CF API Token | 前往 [CF Dashboard → API Tokens](https://dash.cloudflare.com/profile/api-tokens) 创建，选模板 **Edit Cloudflare Workers** |
+| `CF_ACCOUNT_ID` | CF 账户 ID | CF Dashboard 右侧栏可找到 |
+| `ADMIN_UID` | 你的 Telegram 数字 UID | ⭐ 重要：不能写进 wrangler.toml，否则公开仓库全世界可见 |
+| `BOT_TOKEN` | 你的 Bot Token | Telegram BotFather 生成 |
+| `BOT_SECRET` | 任意随机字符串 | Webhook 验证密钥 |
 
 ### 第二步：创建 D1 数据库和密钥（仅首次，二选一）
 
@@ -240,24 +243,31 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          # 将 GitHub Secrets 注入为 Cloudflare Secrets（加密存储）
+          secrets: |
+            BOT_TOKEN
+            BOT_SECRET
+            ADMIN_UID
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          BOT_SECRET: ${{ secrets.BOT_SECRET }}
+          ADMIN_UID: ${{ secrets.ADMIN_UID }}
 ```
 
-### 第四步：配置变量并触发首次部署
+> ✅ 这样所有敏感信息都存在 GitHub Secrets 中，wrangler.toml 里不包含任何私密数据，公开仓库完全安全。
+
+### 第四步：触发首次部署
+
+> ✅ `ADMIN_UID` / `BOT_TOKEN` / `BOT_SECRET` 已在 Step 1 的 GitHub Secrets 中配置，无需写入 wrangler.toml。
+
+如需修改欢迎语等非敏感变量，可以编辑 `wrangler.toml` 的 `[vars]` 区块，然后提交：
 
 **选项 A：网页端（无需本地工具）**
 
-1. 打开你 Fork 的 GitHub 仓库，找到 `wrangler.toml` 文件
+1. 打开你 Fork 的 GitHub 仓库，找到 `wrangler.toml`
 2. 点击右上角铅笔 ✏️ 图标进入编辑
-3. 修改必填变量：
-
-```toml
-ADMIN_UID       = "你的Telegram数字ID"
-WELCOME_MESSAGE = "你的欢迎语"
-```
-
-4. 页面底部填写 commit 信息，点击 **Commit changes**
-
-GitHub Actions 会立即自动触发部署 🚀
+3. 修改 `WELCOME_MESSAGE` 等非敏感变量（`ADMIN_UID` 留空或保持默认占位符即可）
+4. 页面底部点击 **Commit changes** — GitHub Actions 立即自动触发部署 🚀
 
 **选项 B：本地 git**
 
@@ -279,13 +289,10 @@ https://tgcontactbot.yourname.workers.dev/registerWebhook
 
 ---
 
-## 方法三：CF Dashboard 网页端（无需本地环境）
+## 方法三：CF Dashboard 网页端控制台操作
 
-> 适合：不想在本地安装任何工具，全程使用浏览器操作。  
-> Best for: no local tools — everything done in the browser.
-
-> ⚠️ 注意：此方法仍需要在某台有 Node.js 的机器上执行**一次**数据库初始化。  
-> Note: D1 schema initialization still requires a one-time CLI run.
+> 适合：不想在本地安装运行环境，主要使用浏览器进行初始设置和环境变量管理。  
+> Best for: dashboard-based initialization and environment management.
 
 ### 第一步：在 CF Dashboard 创建 Worker
 
@@ -317,18 +324,11 @@ https://tgcontactbot.yourname.workers.dev/registerWebhook
 | Variable | `WELCOME_MESSAGE` | 欢迎语 |
 | 其他变量... | 参考[配置说明](#-配置变量说明--configuration-variables) | |
 
-### 第五步：上传代码
+### 第五步：上传代码（配合 GitHub Actions）
 
-由于本项目是多文件 ES Module，需本地打包后上传：
+> ⚠️ 由于本项目含多个源代码文件，Cloudflare 网页编辑器不支持直接上传多文件项目。
 
-```bash
-git clone https://github.com/levi4212/TgContactBot.git
-cd TgContactBot
-npm install
-npx wrangler deploy   # 使用 wrangler 部署（需登录 CF），或将打包产物手动上传
-```
-
-> 💡 推荐结合 **方法二（GitHub Actions）** 实现自动上传，其他配置均在 Dashboard 完成。
+请直接使用 **方法二（GitHub Actions）** 自动上传代码。这样可以实现两全其美：在 CF 网页端建库和管理，在 GitHub 网页端自动打包发布。
 
 ### 第六步：注册 Webhook
 
