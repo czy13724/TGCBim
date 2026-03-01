@@ -24,6 +24,9 @@ ADMIN_UID = ""       # Your Telegram user ID (owner)
 # ADMIN_GROUP_ID    = "-100xxxxxxxxxx"    # Admin group ID (for Group Mode)
 # ADMINS            = "uid1,uid2"         # Additional admin user IDs
 
+WELCOME_MESSAGE      = "Welcome to use LeviFREE bot!"
+SPAM_BLOCKLIST_URL   = "https://raw.githubusercontent.com/czy13724/czy13724/levi/blocklist.txt"
+
 # ============================================================
 # Business Hours (optional)
 # ============================================================
