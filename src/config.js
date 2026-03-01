@@ -10,7 +10,7 @@ export const config = {
     SECRET: undefined,
     ADMIN_UID: undefined,
     ADMIN_GROUP_ID: undefined,
-    WELCOME_MESSAGE: '', // Set via CF Dashboard → Variables: WELCOME_MESSAGE
+    WELCOME_MESSAGE: 'Welcome to use LeviFREE bot!',
     MESSAGE_INTERVAL: 1,
     DELETE_TOPIC_AS_BAN: false,
     MAX_BROADCAST_BATCH: 50,
@@ -34,7 +34,7 @@ export const config = {
     SPAM_KEYWORDS: '操逼赚钱,挖掘花,招聘花,提供设备,代理花,兼职,招探花',
     SPAM_ACTION: 'block',
     DELETE_SPAM_MESSAGE: true,
-    SPAM_BLOCKLIST_URL: '', // Set via CF Dashboard → Variables: SPAM_BLOCKLIST_URL
+    SPAM_BLOCKLIST_URL: 'https://raw.githubusercontent.com/czy13724/czy13724/levi/blocklist.txt',
     GROUP_SPAM_DETECTION: true,
     GROUP_SPAM_ACTION: 'ban',
     GROUP_ADMIN_PERMISSIONS: true,
