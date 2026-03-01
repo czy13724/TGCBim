@@ -73,8 +73,12 @@ TgContactBot/
 ### 第一步：安装 Wrangler 并登录
 
 ```bash
-npm install -g wrangler    # 安装 / Install
-wrangler login             # 登录 CF（弹出浏览器授权）/ Login to Cloudflare
+# 安装 Wrangler（全局）/ Install Wrangler globally
+npm install -g wrangler
+
+# 登录 Cloudflare 账号（会弹出浏览器页面，点 Allow 即可）
+# Login to Cloudflare (browser will open, click Allow)
+wrangler login
 ```
 
 ### 第二步：克隆项目并安装依赖
@@ -159,17 +163,52 @@ Fork 本项目到你的 GitHub，然后在仓库的 **Settings → Secrets and v
 | `CF_API_TOKEN` | CF API Token | 前往 [CF Dashboard → My Profile → API Tokens](https://dash.cloudflare.com/profile/api-tokens) 创建，选择 **Edit Cloudflare Workers** 模板 |
 | `CF_ACCOUNT_ID` | CF 账户 ID | 在 CF Dashboard 右侧栏可找到 |
 
-### 第二步：创建 D1 数据库和密钥（仅首次）
+### 第二步：创建 D1 数据库和密钥（仅首次，二选一）
 
-> 首次仍需要本地执行一次：
+#### 选项 A：网页端操作（无需本地工具）✅ 推荐
+
+**① 创建 D1 数据库**
+
+1. 打开 [Cloudflare Dashboard](https://dash.cloudflare.com) → 左侧菜单 → **D1 SQL Database**
+2. 点击 **Create database**，命名为 `tgcontactbot`，点击 **Create**
+3. 进入数据库详情页 → 点击 **Console** 标签
+4. 将 `schema.sql` 的全部内容粘贴进去 → 点击 **Execute** 建表
+
+**② 获取 database_id 并更新 wrangler.toml**
+
+1. 在数据库详情页找到 **Database ID**（一串 UUID）
+2. 打开你 Fork 的 GitHub 仓库，编辑 `wrangler.toml`，将 `database_id` 替换为你的值：
+
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "tgcontactbot"
+database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"   ← 替换这里
+```
+
+**③ 设置密钥（Secrets）**
+
+1. 前往 [CF Dashboard](https://dash.cloudflare.com) → **Workers & Pages → tgcontactbot**（如没有，先部署一次）
+2. 点击 **Settings → Environment Variables**
+3. 分别添加以下两个 **Secret 类型**（点击 Encrypt 按钮）：
+
+| 名称 | 值 | 类型 |
+|------|-----|------|
+| `BOT_TOKEN` | 你的 Bot Token | 🔒 Secret |
+| `BOT_SECRET` | 任意随机字符串 | 🔒 Secret |
+
+> ⚠️ 注意：首次部署前 Worker 可能还不存在。可以先跳到第三步提交代码触发第一次部署，再回来设置 Secret。
+
+---
+
+#### 选项 B：本地 CLI 操作
 
 ```bash
 npm install -g wrangler
 wrangler login
 
-# 创建数据库
+# 创建数据库，将输出的 database_id 更新到 wrangler.toml
 wrangler d1 create tgcontactbot
-# 将输出的 database_id 更新到 wrangler.toml 并 commit
 
 # 推送表结构
 wrangler d1 execute tgcontactbot --file=schema.sql --remote
