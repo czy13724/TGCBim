@@ -35,9 +35,23 @@ export async function forwardMessageU2A(message) {
 
     const isBlocked = await db.isUserBlocked(user.id)
     if (isBlocked) {
-        return // User is blocked
-        // 用户被封禁
+        // Notify user they are blocked — only once per day to avoid spam
+        // 通知用户已被封禁，每天最多通知一次避免刷屏
+        try {
+            const dbUser = await db.getUser(user.id).catch(() => null)
+            const lang = getLang(dbUser || user)
+            const today = new Date().toDateString()
+            const lastNotified = await db.getUserState(user.id, 'block_notify_date').catch(() => null)
+            if (lastNotified !== today) {
+                await db.setUserState(user.id, 'block_notify_date', today)
+                await sendMessage({ chat_id: chat_id, text: t('user_blocked', lang) })
+            }
+        } catch (e) {
+            console.error('Failed to send block notification:', e)
+        }
+        return
     }
+
 
     // Anti-Flood Rate Limiting
     // 防刷屏频率限制
@@ -335,7 +349,7 @@ export async function forwardMessageA2U(message) {
                 await sendMessage({
                     chat_id: message.chat.id,
                     message_thread_id: message_thread_id,
-                    text: t('msg_send_failed', 'en'), // assuming admin reads english, otherwise we hardcode
+                    text: t('msg_send_failed', getLang(message.from)),
                     reply_to_message_id: message.message_id
                 })
             }
@@ -344,7 +358,7 @@ export async function forwardMessageA2U(message) {
             await sendMessage({
                 chat_id: message.chat.id,
                 message_thread_id: message_thread_id,
-                text: t('msg_send_error', 'en', { ERROR: e.message }),
+                text: t('msg_send_error', getLang(message.from), { ERROR: e.message }),
                 reply_to_message_id: message.message_id
             })
         }
@@ -394,7 +408,7 @@ export async function handleOldModeAdminReply(message) {
         console.error('Error Old Mode Reply:', e)
         await sendMessage({
             chat_id: message.chat.id,
-            text: `❌ Failed to send: ${e.message}`,
+            text: t('msg_send_error', getLang(message.from), { ERROR: e.message }),
             reply_to_message_id: message.message_id
         })
         return true

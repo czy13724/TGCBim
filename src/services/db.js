@@ -441,12 +441,22 @@ export class Database {
     }
 
     // Old-mode reply mapping: message_id (in admin chat) -> user_id
+    // Stored as JSON {uid, ts} to support time-based cleanup
     async getOldMessageMap(message_id) {
         const val = await this.getUserState('old_msg_map', message_id.toString());
-        return val ? val.toString() : null;
+        if (!val) return null;
+        try {
+            const parsed = JSON.parse(val);
+            return parsed.uid ? parsed.uid.toString() : val.toString();
+        } catch {
+            // Backward compat: old entries stored plain string
+            return val.toString();
+        }
     }
     async setOldMessageMap(message_id, user_id) {
-        await this.setUserState('old_msg_map', message_id.toString(), user_id.toString());
+        await this.setUserState('old_msg_map', message_id.toString(),
+            JSON.stringify({ uid: user_id.toString(), ts: Date.now() })
+        );
     }
 
     async isUserBlockedOld(user_id) { return false; }

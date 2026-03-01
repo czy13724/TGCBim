@@ -7,6 +7,7 @@ import { db, tplGet } from '../services/db.js';
 import { sendMessage, getMe } from '../services/telegram.js';
 import { escapeHtml } from '../utils/utils.js';
 import { checkSecurity, updateUserDb } from '../utils/helpers.js';
+import { getLang } from '../services/i18n.js';
 
 export async function handleStart(message) {
     const user = message.from
@@ -60,64 +61,87 @@ export async function handleStart(message) {
 }
 
 export async function handleHelpCommand(message) {
-    // Determine if admin
-    // 确定是否为管理员
     const isAdmin = isGlobalAdminOrOwner(message.from.id)
+    const dbUser = isAdmin ? await db.getUser(message.from.id).catch(() => null) : null
+    const lang = getLang(dbUser || message.from)
+    const zh = lang === 'zh'
 
-    let text = `🤖 <b>Bot Help</b>\n\n`
+    let text = zh ? `🤖 <b>Bot 帮助</b>\n\n` : `🤖 <b>Bot Help</b>\n\n`
 
     if (isAdmin) {
-        text += `<b>Admin Commands:</b>\n`
-        text += `/block <i>or</i> /ban - Block user (reply or /block &lt;id&gt;)\n`
-        text += `/unblock <i>or</i> /unban - Unblock user\n`
-        text += `/checkblock - Check block status\n`
-        text += `/white - Add to whitelist (reply to user message)\n`
-        text += `/unwhite - Remove from whitelist (reply)\n`
-        text += `/whitelist add|remove|list - Full whitelist management\n`
-        text += `/uid - Get user ID (reply or /@username)\n`
-        text += `/userinfo - Get user info (reply or in topic)\n`
-        text += `/stats - Bot statistics\n`
-        text += `/broadcast - Broadcast message to all users\n`
-        text += `/clear - Clear today's log (in topic)\n`
-        text += `/close - Close topic\n`
-        text += `/reopen - Reopen topic\n`
-        text += `/tpl add|del|list|&lt;key&gt; - Template management\n`
-        text += `/spamstats - Spam statistics\n`
-        text += `/listspam - List spam keywords\n`
-        text += `/addspam &lt;kw&gt; - Add spam keyword\n`
-        text += `/removespam &lt;kw&gt; - Remove spam keyword\n`
-        text += `/maintenance &lt;on/off&gt; - Toggle maintenance mode\n`
-        text += `/listadmins - List all admins\n`
+        text += zh ? `<b>管理员命令：</b>\n` : `<b>Admin Commands:</b>\n`
+        if (zh) {
+            text += `/block 或 /ban - 封禁用户（回复或 /block &lt;id&gt;）\n`
+            text += `/unblock 或 /unban - 解封用户\n`
+            text += `/checkblock - 查看封禁状态\n`
+            text += `/white - 加入白名单（回复用户消息）\n`
+            text += `/unwhite - 移出白名单（回复）\n`
+            text += `/whitelist add|remove|list - 白名单管理\n`
+            text += `/uid - 获取用户 ID（回复或 /@用户名）\n`
+            text += `/userinfo - 查看用户信息（回复或话题中）\n`
+            text += `/stats - Bot 统计信息\n`
+            text += `/broadcast - 向所有用户广播消息\n`
+            text += `/clear - 清除今日日志（话题中）\n`
+            text += `/close - 关闭话题\n`
+            text += `/reopen - 重新开启话题\n`
+            text += `/tpl add|del|list|&lt;键&gt; - 模板管理\n`
+            text += `/spamstats - 垃圾拦截统计\n`
+            text += `/listspam - 查看垃圾关键词列表\n`
+            text += `/addspam &lt;关键词&gt; - 添加垃圾关键词\n`
+            text += `/removespam &lt;关键词&gt; - 删除垃圾关键词\n`
+            text += `/maintenance &lt;on/off&gt; - 切换维护模式\n`
+            text += `/listadmins - 查看所有管理员\n`
+            text += `/refreshspam - 强制刷新远程关键词列表\n`
+            text += `/lang - 切换管理员界面语言\n`
+        } else {
+            text += `/block <i>or</i> /ban - Block user (reply or /block &lt;id&gt;)\n`
+            text += `/unblock <i>or</i> /unban - Unblock user\n`
+            text += `/checkblock - Check block status\n`
+            text += `/white - Add to whitelist (reply to user message)\n`
+            text += `/unwhite - Remove from whitelist (reply)\n`
+            text += `/whitelist add|remove|list - Full whitelist management\n`
+            text += `/uid - Get user ID (reply or /@username)\n`
+            text += `/userinfo - Get user info (reply or in topic)\n`
+            text += `/stats - Bot statistics\n`
+            text += `/broadcast - Broadcast message to all users\n`
+            text += `/clear - Clear today's log (in topic)\n`
+            text += `/close - Close topic\n`
+            text += `/reopen - Reopen topic\n`
+            text += `/tpl add|del|list|&lt;key&gt; - Template management\n`
+            text += `/spamstats - Spam statistics\n`
+            text += `/listspam - List spam keywords\n`
+            text += `/addspam &lt;kw&gt; - Add spam keyword\n`
+            text += `/removespam &lt;kw&gt; - Remove spam keyword\n`
+            text += `/maintenance &lt;on/off&gt; - Toggle maintenance mode\n`
+            text += `/listadmins - List all admins\n`
+            text += `/refreshspam - Force refresh remote spam blocklist\n`
+            text += `/lang - Switch admin interface language\n`
+        }
     } else {
-        text += `Send messages to contact support.\n`
+        text += zh ? `发送消息即可联系客服。\n` : `Send messages to contact support.\n`
     }
 
-    await sendMessage({
-        chat_id: message.chat.id,
-        text: text,
-        parse_mode: 'HTML'
-    })
+    await sendMessage({ chat_id: message.chat.id, text, parse_mode: 'HTML' })
 }
 
 export async function handleStatsCommand(message) {
     if (!isGlobalAdminOrOwner(message.from.id)) return
 
+    const dbUser = await db.getUser(message.from.id).catch(() => null)
+    const lang = getLang(dbUser || message.from)
+    const zh = lang === 'zh'
+
     const totalMessages = await db.getCounter('total_messages')
     const users = await db.getAllUsers(10000)
     const userCount = users.length
     const blockedCount = await db.getCounter('spam_blocked')
-
     const maint = await db.getCounter('maintenance_mode')
 
-    let text = `📊 <b>Statistics</b>\n\n`
-    text += `👤 <b>Users:</b> ${userCount}\n`
-    text += `🚫 <b>Spam Blocked:</b> ${blockedCount}\n`
-    text += `📨 <b>Messages:</b> ${totalMessages}\n`
-    text += `🛠 <b>Maintenance:</b> ${maint === 1 ? 'ON' : 'OFF'}\n`
+    let text = zh ? `📊 <b>统计信息</b>\n\n` : `📊 <b>Statistics</b>\n\n`
+    text += zh
+        ? `👤 <b>用户数：</b> ${userCount}\n🚫 <b>已拦截垃圾：</b> ${blockedCount}\n📨 <b>消息总数：</b> ${totalMessages}\n🛠 <b>维护模式：</b> ${maint === 1 ? '开启' : '关闭'}\n`
+        : `� <b>Users:</b> ${userCount}\n�🚫 <b>Spam Blocked:</b> ${blockedCount}\n📨 <b>Messages:</b> ${totalMessages}\n🛠 <b>Maintenance:</b> ${maint === 1 ? 'ON' : 'OFF'}\n`
 
-    await sendMessage({
-        chat_id: message.chat.id,
-        text: text,
-        parse_mode: 'HTML'
-    })
+    await sendMessage({ chat_id: message.chat.id, text, parse_mode: 'HTML' })
 }
+

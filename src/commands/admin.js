@@ -4,9 +4,10 @@
  */
 import { config, isGlobalAdminOrOwner } from '../config.js';
 import { db, d1, tplGet, tplSet, tplDel, tplList } from '../services/db.js';
-import { sendMessage, copyMessage, closeForumTopic, reopenForumTopic } from '../services/telegram.js';
+import { sendMessage, copyMessage, closeForumTopic, reopenForumTopic, editMessage, answerCallbackQuery } from '../services/telegram.js';
 import { escapeHtml, delay, formatTime } from '../utils/utils.js';
 import { getSpamKeywords, setSpamKeywords, checkSpam } from '../core/spam.js';
+import { getLang, t } from '../services/i18n.js';
 
 // === Broadcast ===
 // === 广播 ===
@@ -112,28 +113,31 @@ async function handleBlockUnblock(message, isBlock) {
         targetId = args[1]
     }
 
+    const lang = getLang(message.from)
+
     if (!targetId) {
         return sendMessage({
             chat_id: message.chat.id,
-            text: `Usage: /${isBlock ? 'block' : 'unblock'} (reply or in topic or <id>)`,
+            text: t('admin_block_usage', lang, { CMD: isBlock ? 'block' : 'unblock' }),
             reply_to_message_id: message.message_id
         })
     }
 
-    if (targetId.toString() === config.ADMIN_UID) return sendMessage({ chat_id: message.chat.id, text: "Can't block admin/owner." })
+    if (targetId.toString() === config.ADMIN_UID) return sendMessage({ chat_id: message.chat.id, text: t('admin_block_self', lang) })
 
     if (isBlock) {
         await db.blockUser(targetId, true)
-        await sendMessage({ chat_id: message.chat.id, text: `🚫 User ${targetId} blocked.` })
+        await sendMessage({ chat_id: message.chat.id, text: t('admin_blocked', lang, { UID: targetId }) })
     } else {
         await db.blockUser(targetId, false)
         await db.blockUserOld(targetId, false)
-        await sendMessage({ chat_id: message.chat.id, text: `✅ User ${targetId} unblocked.` })
+        await sendMessage({ chat_id: message.chat.id, text: t('admin_unblocked', lang, { UID: targetId }) })
     }
 }
 
 export async function handleCheckBlockCommand(message) {
     const thread_id = message.message_thread_id
+    const lang = getLang(message.from)
     let targetId = null
     if (message.reply_to_message) {
         targetId = await db.getOldMessageMap(message.reply_to_message.message_id)
@@ -148,84 +152,83 @@ export async function handleCheckBlockCommand(message) {
     const args = message.text.split(' ')
     if (!targetId && args.length > 1) targetId = args[1]
 
-    if (!targetId) return sendMessage({ chat_id: message.chat.id, text: 'No target found.' })
+    if (!targetId) return sendMessage({ chat_id: message.chat.id, text: t('admin_no_target', lang) })
 
     const isBlocked = await db.isUserBlocked(targetId)
     const isBlockedOld = await db.isUserBlockedOld(targetId)
 
     await sendMessage({
         chat_id: message.chat.id,
-        text: `User ${targetId}:\nNew Block: ${isBlocked}\nOld Block: ${isBlockedOld}`
+        text: t('admin_check_block', lang, { UID: targetId, STATUS: isBlocked || isBlockedOld ? '🔴' : '🟢' })
     })
 }
 
 // === Management ===
 // === 管理 ===
 export async function handleClearCommand(message) {
-    // Clear today's logs for the topic user
-    // 清除话题用户当天的日志
-
+    const lang = getLang(message.from)
     const thread_id = message.message_thread_id
-    if (!thread_id) return sendMessage({ chat_id: message.chat.id, text: "Command must be used in a topic." })
+    if (!thread_id) return sendMessage({ chat_id: message.chat.id, text: t('admin_topic_only', lang), reply_to_message_id: message.message_id })
 
     const user = await db.findUserByThreadId(thread_id)
-    if (!user) return sendMessage({ chat_id: message.chat.id, text: "User not found for this topic." })
+    if (!user) return sendMessage({ chat_id: message.chat.id, text: t('admin_user_not_found_topic', lang) })
 
     const { formatDateKeyUTC } = await import('../utils/utils.js')
     const startDay = formatDateKeyUTC()
     try {
         const delStmt = d1.prepare("DELETE FROM message_logs WHERE user_id = ? AND date_key = ?");
         await delStmt.bind(user.user_id.toString(), startDay).run();
-        await sendMessage({ chat_id: message.chat.id, message_thread_id: thread_id, text: "✅ Today's conversation log cleared from database." })
+        await sendMessage({ chat_id: message.chat.id, message_thread_id: thread_id, text: t('admin_log_cleared', lang) })
     } catch (e) {
-        await sendMessage({ chat_id: message.chat.id, text: `Error clearing logs: ${e.message}` })
+        await sendMessage({ chat_id: message.chat.id, text: t('admin_log_clear_error', lang, { MSG: e.message }) })
     }
 }
 
 export async function handleCloseCommand(message) {
+    const lang = getLang(message.from)
     if (!message.message_thread_id) {
-        return sendMessage({ chat_id: message.chat.id, text: '⚠️ This command only works inside a topic thread (requires Group Mode).', reply_to_message_id: message.message_id })
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_topic_only', lang), reply_to_message_id: message.message_id })
     }
     try {
         await closeForumTopic(message.chat.id, message.message_thread_id)
         await db.setTopicStatus(message.message_thread_id, 'closed')
-        await sendMessage({ chat_id: message.chat.id, message_thread_id: message.message_thread_id, text: "Topic closed." })
+        await sendMessage({ chat_id: message.chat.id, message_thread_id: message.message_thread_id, text: t('admin_topic_closed', lang) })
     } catch (e) {
-        return await sendMessage({ chat_id: message.chat.id, text: `Error: ${e.message}` })
+        return await sendMessage({ chat_id: message.chat.id, text: t('admin_error', lang, { MSG: e.message }) })
     }
 }
 
 export async function handleReopenCommand(message) {
+    const lang = getLang(message.from)
     if (!message.message_thread_id) {
-        return sendMessage({ chat_id: message.chat.id, text: '⚠️ This command only works inside a topic thread (requires Group Mode).', reply_to_message_id: message.message_id })
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_topic_only', lang), reply_to_message_id: message.message_id })
     }
     try {
         await reopenForumTopic(message.chat.id, message.message_thread_id)
         await db.setTopicStatus(message.message_thread_id, 'opened')
-        await sendMessage({ chat_id: message.chat.id, message_thread_id: message.message_thread_id, text: "Topic reopened." })
+        await sendMessage({ chat_id: message.chat.id, message_thread_id: message.message_thread_id, text: t('admin_topic_reopened', lang) })
     } catch (e) {
-        return await sendMessage({ chat_id: message.chat.id, text: `Error: ${e.message}` })
+        return await sendMessage({ chat_id: message.chat.id, text: t('admin_error', lang, { MSG: e.message }) })
     }
 }
 
 export async function handleMaintenanceToggle(enable, message) {
     if (!isGlobalAdminOrOwner(message.from.id)) return
+    const lang = getLang(message.from)
 
     if (enable) {
         const stmt = d1.prepare("INSERT INTO counters (key, value) VALUES ('maintenance_mode', 1) ON CONFLICT(key) DO UPDATE SET value = 1");
         await stmt.run();
-        return await sendMessage({ chat_id: message.chat.id, text: "🛠 Maintenance mode ON", reply_to_message_id: message.message_id })
+        return await sendMessage({ chat_id: message.chat.id, text: t('admin_maintenance_on', lang), reply_to_message_id: message.message_id })
     } else {
         const stmt = d1.prepare("INSERT INTO counters (key, value) VALUES ('maintenance_mode', 0) ON CONFLICT(key) DO UPDATE SET value = 0");
         await stmt.run();
-        return await sendMessage({ chat_id: message.chat.id, text: "✅ Maintenance mode OFF", reply_to_message_id: message.message_id })
+        return await sendMessage({ chat_id: message.chat.id, text: t('admin_maintenance_off', lang), reply_to_message_id: message.message_id })
     }
 }
 
 export async function handleTemplateCommand(message) {
-    // Usage: /tpl add <key> <val> | del <key> | list | <key>
-    // 用法：/tpl add <key> <val> | del <key> | list | <key>
-
+    const lang = getLang(message.from)
     const args = message.text.split(' ')
     const sub = args[1]
 
@@ -234,40 +237,39 @@ export async function handleTemplateCommand(message) {
         const val = args.slice(3).join(' ')
         if (key && val) {
             await tplSet(key, val)
-            return sendMessage({ chat_id: message.chat.id, text: `Template '${key}' saved.` })
+            return sendMessage({ chat_id: message.chat.id, text: t('admin_tpl_saved', lang, { KEY: key }) })
         }
     } else if (sub === 'del') {
         const key = args[2]
         if (key) {
             await tplDel(key)
-            return sendMessage({ chat_id: message.chat.id, text: `Template '${key}' deleted.` })
+            return sendMessage({ chat_id: message.chat.id, text: t('admin_tpl_deleted', lang, { KEY: key }) })
         }
     } else if (sub === 'list') {
         const list = await tplList()
-        return sendMessage({ chat_id: message.chat.id, text: `Templates:\n${list.join('\n')}` })
+        if (!list.length) return sendMessage({ chat_id: message.chat.id, text: t('admin_tpl_empty', lang) })
+        return sendMessage({ chat_id: message.chat.id, text: `📋 ${list.join('\n')}` })
     } else if (sub) {
-        // Send template content
-        // 发送模板内容
         const val = await tplGet(sub)
         if (val) {
             return sendMessage({ chat_id: message.chat.id, message_thread_id: message.message_thread_id, text: val })
         }
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_tpl_not_found', lang, { KEY: sub }) })
     }
 
-    return sendMessage({ chat_id: message.chat.id, text: "Usage: /tpl add <k> <v> | del <k> | list | <k>" })
+    return sendMessage({ chat_id: message.chat.id, text: t('admin_tpl_usage', lang) })
 }
 
 export async function handleUserInfoCommand(message) {
+    const lang = getLang(message.from)
     const thread_id = message.message_thread_id
     let targetUser = null
 
     if (message.reply_to_message) {
         const uid = await db.getOldMessageMap(message.reply_to_message.message_id)
         if (uid) targetUser = await db.getUser(uid)
-        // Fallback: use forward_from for old unmapped messages
         if (!targetUser && message.reply_to_message.forward_from) {
-            const fwdId = message.reply_to_message.forward_from.id
-            targetUser = await db.getUser(fwdId)
+            targetUser = await db.getUser(message.reply_to_message.forward_from.id)
         }
     }
 
@@ -275,54 +277,48 @@ export async function handleUserInfoCommand(message) {
         targetUser = await db.findUserByThreadId(thread_id)
     }
 
-    if (!targetUser) return sendMessage({ chat_id: message.chat.id, text: "User not found." })
+    if (!targetUser) return sendMessage({ chat_id: message.chat.id, text: t('admin_user_not_found', lang) })
 
     const isBlocked = await db.isUserBlocked(targetUser.user_id)
 
-    let info = `👤 <b>User Info</b>\n`
-    info += `ID: <code>${targetUser.user_id}</code>\n`
-    info += `Name: ${escapeHtml(targetUser.first_name)} ${escapeHtml(targetUser.last_name || '')}\n`
-    info += `Username: @${targetUser.username || ''}\n`
-    info += `Created: ${formatTime(targetUser.created_at)}\n`
-    info += `Status: ${isBlocked ? '🔴 Blocked' : '🟢 Active'}\n`
+    const labels = lang === 'zh'
+        ? { title: '👤 <b>用户信息</b>', id: 'ID', name: '姓名', username: '用户名', created: '注册时间', status: '状态', blocked: '🔴 已封禁', active: '� 正常' }
+        : { title: '�👤 <b>User Info</b>', id: 'ID', name: 'Name', username: 'Username', created: 'Created', status: 'Status', blocked: '🔴 Blocked', active: '🟢 Active' }
 
-    await sendMessage({
-        chat_id: message.chat.id,
-        text: info,
-        parse_mode: 'HTML'
-    })
+    let info = `${labels.title}\n`
+    info += `${labels.id}: <code>${targetUser.user_id}</code>\n`
+    info += `${labels.name}: ${escapeHtml(targetUser.first_name)} ${escapeHtml(targetUser.last_name || '')}\n`
+    info += `${labels.username}: @${targetUser.username || ''}\n`
+    info += `${labels.created}: ${formatTime(targetUser.created_at)}\n`
+    info += `${labels.status}: ${isBlocked ? labels.blocked : labels.active}\n`
+
+    await sendMessage({ chat_id: message.chat.id, text: info, parse_mode: 'HTML' })
 }
 
 export async function handleUidCommand(message) {
     const thread_id = message.message_thread_id
+    const lang = getLang(message.from)
     let targetId = null
 
-    // 1. Reply
-    // 1. 回复
     if (message.reply_to_message) {
         targetId = await db.getOldMessageMap(message.reply_to_message.message_id)
-        // Fallback: use Telegram's forward_from for old/unmapped messages
         if (!targetId && message.reply_to_message.forward_from) {
             targetId = message.reply_to_message.forward_from.id
         }
     }
 
-    // 2. Thread
-    // 2. 话题
     if (!targetId && thread_id) {
         const u = await db.findUserByThreadId(thread_id)
         if (u) targetId = u.user_id
     }
 
-    // 3. Args
-    // 3. 参数
     const args = message.text.split(' ')
     if (!targetId && args.length > 1) {
         if (args[1].startsWith('@')) {
             const username = args[1].substring(1)
             targetId = await db.getUserIDByUsername(username)
             if (!targetId) {
-                return sendMessage({ chat_id: message.chat.id, text: `Username @${username} not found in database index.` })
+                return sendMessage({ chat_id: message.chat.id, text: t('admin_username_not_found', lang, { USERNAME: username }), reply_to_message_id: message.message_id })
             }
         } else {
             targetId = args[1]
@@ -332,58 +328,70 @@ export async function handleUidCommand(message) {
     if (targetId) {
         return await sendMessage({ chat_id: message.chat.id, text: `UID: <code>${targetId}</code>`, parse_mode: 'HTML', reply_to_message_id: message.message_id })
     } else {
-        return await sendMessage({ chat_id: message.chat.id, text: "UID not found. Usage: /uid (reply | @username | <id>)", reply_to_message_id: message.message_id })
+        return await sendMessage({ chat_id: message.chat.id, text: t('admin_uid_not_found', lang), reply_to_message_id: message.message_id })
     }
 }
 
 export async function handleSpamCommand(message, command) {
     const args = message.text.split(/\s+/)
+    const lang = getLang(message.from)
 
     if (command === '/addspam') {
         const kw = args.slice(1).join(' ')
-        if (!kw) return sendMessage({ chat_id: message.chat.id, text: "Usage: /addspam <keyword>" })
-
+        if (!kw) return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_usage_add', lang) })
         let current = await getSpamKeywords()
         const list = current ? current.split(',') : []
-        if (list.includes(kw)) return sendMessage({ chat_id: message.chat.id, text: "Exists." })
-
+        if (list.includes(kw)) return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_exists', lang) })
         list.push(kw)
         await setSpamKeywords(list.join(','))
-        return sendMessage({ chat_id: message.chat.id, text: `Added '${kw}'.` })
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_added', lang, { KW: kw }) })
     }
 
     if (command === '/removespam') {
         const kw = args.slice(1).join(' ')
-        if (!kw) return sendMessage({ chat_id: message.chat.id, text: "Usage: /removespam <keyword>" })
-
+        if (!kw) return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_usage_remove', lang) })
         let current = await getSpamKeywords()
         let list = current ? current.split(',') : []
-        if (!list.includes(kw)) return sendMessage({ chat_id: message.chat.id, text: "Not found." })
-
+        if (!list.includes(kw)) return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_not_found', lang) })
         list = list.filter(k => k !== kw)
         await setSpamKeywords(list.join(','))
-        return sendMessage({ chat_id: message.chat.id, text: `Removed '${kw}'.` })
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_removed', lang, { KW: kw }) })
     }
 
     if (command === '/listspam') {
         let current = await getSpamKeywords()
-        return sendMessage({ chat_id: message.chat.id, text: `Spam Keywords:\n` + (current || '').split(',').join('\n') })
+        return sendMessage({ chat_id: message.chat.id, text: (lang === 'zh' ? '垃圾关键词：\n' : 'Spam Keywords:\n') + (current || '').split(',').filter(Boolean).join('\n') })
     }
 
     if (command === '/checkspam') {
         const txt = args.slice(1).join(' ')
         const res = await checkSpam({ text: txt })
-        return sendMessage({ chat_id: message.chat.id, text: `Is Spam: ${res.isSpam}\nMatch: ${res.matchedKeyword || res.matchedPattern || '-'}` })
+        const isSpamStr = lang === 'zh' ? (res.isSpam ? '是' : '否') : String(res.isSpam)
+        return sendMessage({ chat_id: message.chat.id, text: (lang === 'zh' ? `垃圾判断：${isSpamStr}\n匹配：` : `Is Spam: ${isSpamStr}\nMatch: `) + (res.matchedKeyword || res.matchedPattern || '-') })
     }
 
     if (command === '/spamstats') {
         const blocked = await db.getCounter('spam_blocked')
-        return sendMessage({ chat_id: message.chat.id, text: `Spam Blocked: ${blocked}` })
+        return sendMessage({ chat_id: message.chat.id, text: lang === 'zh' ? `已拦截垃圾消息：${blocked} 条` : `Spam Blocked: ${blocked}` })
+    }
+
+    if (command === '/refreshspam') {
+        await sendMessage({ chat_id: message.chat.id, text: t('admin_spam_refreshing', lang) })
+        try {
+            const delStmt = d1.prepare("DELETE FROM system_cache WHERE key = 'spam_blocklist_cache'")
+            await delStmt.run()
+            const freshKeywords = await getSpamKeywords()
+            const count = freshKeywords ? freshKeywords.split(',').filter(Boolean).length : 0
+            return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_refreshed', lang, { COUNT: count }) })
+        } catch (e) {
+            return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_refresh_fail', lang, { MSG: e.message }) })
+        }
     }
 }
 
 export async function handleWhitelistCommand(message) {
-    if (!isGlobalAdminOrOwner(message.from.id)) return sendMessage({ chat_id: message.chat.id, text: 'Unauthorized' })
+    const lang = getLang(message.from)
+    if (!isGlobalAdminOrOwner(message.from.id)) return sendMessage({ chat_id: message.chat.id, text: t('admin_unauthorized', lang) })
 
     const args = message.text.split(/\s+/)
     const sub = args[1]?.toLowerCase()
@@ -392,62 +400,128 @@ export async function handleWhitelistCommand(message) {
         const targetId = args[2]
         if (!targetId && message.reply_to_message) {
             let replyId = await db.getOldMessageMap(message.reply_to_message.message_id)
-            // Fallback: use forward_from for old unmapped messages
             if (!replyId && message.reply_to_message.forward_from) {
                 replyId = message.reply_to_message.forward_from.id?.toString()
             }
             if (replyId) {
                 await db.addToWhitelist(replyId)
-                return sendMessage({ chat_id: message.chat.id, text: `✅ Added ${replyId} to whitelist.` })
+                return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_added', lang, { UID: replyId }) })
             }
             const threadId = message.message_thread_id;
             if (threadId) {
                 const u = await db.findUserByThreadId(threadId)
                 if (u) {
                     await db.addToWhitelist(u.user_id)
-                    return sendMessage({ chat_id: message.chat.id, text: `✅ Added ${u.user_id} to whitelist.` })
+                    return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_added', lang, { UID: u.user_id }) })
                 }
             }
-            return sendMessage({ chat_id: message.chat.id, text: "Usage: /whitelist add <id> or reply to user message." })
+            return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_usage_add', lang) })
         } else if (targetId) {
             await db.addToWhitelist(targetId)
-            return sendMessage({ chat_id: message.chat.id, text: `✅ Added ${targetId} to whitelist.` })
+            return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_added', lang, { UID: targetId }) })
         }
-        return sendMessage({ chat_id: message.chat.id, text: "Usage: /whitelist add <id>" })
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_usage_add2', lang) })
     }
 
     if (sub === 'remove' || sub === 'del') {
         const targetId = args[2]
         if (!targetId && message.reply_to_message) {
             let replyId = await db.getOldMessageMap(message.reply_to_message.message_id)
-            // Fallback: use forward_from for old unmapped messages
             if (!replyId && message.reply_to_message.forward_from) {
                 replyId = message.reply_to_message.forward_from.id?.toString()
             }
             if (replyId) {
                 await db.removeFromWhitelist(replyId)
-                return sendMessage({ chat_id: message.chat.id, text: `✅ Removed ${replyId} from whitelist.` })
+                return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_removed', lang, { UID: replyId }) })
             }
             const threadId = message.message_thread_id;
             if (threadId) {
                 const u = await db.findUserByThreadId(threadId)
                 if (u) {
                     await db.removeFromWhitelist(u.user_id)
-                    return sendMessage({ chat_id: message.chat.id, text: `✅ Removed ${u.user_id} from whitelist.` })
+                    return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_removed', lang, { UID: u.user_id }) })
                 }
             }
-            return sendMessage({ chat_id: message.chat.id, text: "Usage: /whitelist remove <id> or reply to user message." })
+            return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_usage_remove', lang) })
         } else if (targetId) {
             await db.removeFromWhitelist(targetId)
-            return sendMessage({ chat_id: message.chat.id, text: `✅ Removed ${targetId} from whitelist.` })
+            return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_removed', lang, { UID: targetId }) })
         }
-        return sendMessage({ chat_id: message.chat.id, text: "Usage: /whitelist remove <id>" })
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_usage_remove2', lang) })
     }
 
     if (sub === 'list') {
         const wl = await db.getWhitelistedUsers()
-        return sendMessage({ chat_id: message.chat.id, text: `📋 Whitelist:\n` + (wl.length ? wl.join('\n') : 'Empty') })
+        const empty = t('admin_whitelist_empty', lang)
+        return sendMessage({ chat_id: message.chat.id, text: (lang === 'zh' ? '📋 白名单：\n' : '📋 Whitelist:\n') + (wl.length ? wl.join('\n') : empty) })
     }
 
-    return sendMessage({ chat_id: message.chat.id, text: "Usage: /whitelist add <id> | remove <id> | list" })
+    return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_usage', lang) })
 }
+
+// === Language Preference ===
+// === 语言偏好 ===
+
+function langKeyboard(currentLang) {
+    return {
+        inline_keyboard: [[
+            { text: currentLang === 'zh' ? '🇨🇳 中文 ✓' : '🇨🇳 中文', callback_data: 'admin_lang:zh' },
+            { text: currentLang === 'en' ? '🇺🇸 English ✓' : '🇺🇸 English', callback_data: 'admin_lang:en' }
+        ]]
+    }
+}
+
+export async function handleLangCommand(message) {
+    const currentLang = getLang(message.from)
+    const text = currentLang === 'zh'
+        ? '🌐 <b>界面语言设置</b>\n\n当前：🇨🇳 中文\n\n点击按钮切换语言：'
+        : '🌐 <b>Interface Language</b>\n\nCurrent: 🇺🇸 English\n\nTap a button to switch:'
+    return sendMessage({
+        chat_id: message.chat.id,
+        text,
+        parse_mode: 'HTML',
+        reply_markup: langKeyboard(currentLang),
+        reply_to_message_id: message.message_id
+    })
+}
+
+export async function handleLangCallback(callbackQuery) {
+    if (!callbackQuery.data?.startsWith('admin_lang:')) return false
+    if (!isGlobalAdminOrOwner(callbackQuery.from.id)) return false
+
+    const choice = callbackQuery.data.split(':')[1]  // 'zh' or 'en'
+    const userId = callbackQuery.from.id
+
+    // Persist pref_lang
+    // 持久化语言偏好
+    let dbUser = await db.getUser(userId).catch(() => null)
+    if (dbUser) {
+        dbUser.pref_lang = choice
+        await db.setUser(userId, dbUser)
+    } else {
+        await db.setUser(userId, {
+            user_id: userId,
+            first_name: callbackQuery.from.first_name || 'Admin',
+            pref_lang: choice,
+            created_at: Date.now(), updated_at: Date.now(), last_activity: Date.now()
+        })
+    }
+
+    // Update the message to reflect new selection
+    // 更新消息以反映新选择
+    const newText = choice === 'zh'
+        ? '🌐 <b>界面语言设置</b>\n\n当前：🇨🇳 中文\n\n点击按钮切换语言：'
+        : '🌐 <b>Interface Language</b>\n\nCurrent: 🇺🇸 English\n\nTap a button to switch:'
+    const alertText = choice === 'zh' ? '✅ 已切换为中文' : '✅ Switched to English'
+
+    await editMessage({
+        chat_id: callbackQuery.message.chat.id,
+        message_id: callbackQuery.message.message_id,
+        text: newText,
+        parse_mode: 'HTML',
+        reply_markup: langKeyboard(choice)
+    })
+    await answerCallbackQuery(callbackQuery.id, { text: alertText })
+    return true
+}
+

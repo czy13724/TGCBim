@@ -5,11 +5,13 @@
 import { config, isGlobalAdminOrOwner } from '../config.js';
 import { db, d1 } from '../services/db.js';
 import { requestTelegram, sendMessage, answerCallbackQuery, getRateLimitStatus, isGroupAdmin } from '../services/telegram.js';
-import { handleStart, handleBroadcastCommand, handleBlockCommand, handleUnblockCommand, handleCheckBlockCommand, handleClearCommand, handleCloseCommand, handleReopenCommand, handleStatsCommand, handleHelpCommand, handleMaintenanceToggle, handleTemplateCommand, handleUserInfoCommand, handleUidCommand, handleSpamCommand, handleWhitelistCommand } from '../commands/index.js';
+import { handleStart, handleBroadcastCommand, handleBlockCommand, handleUnblockCommand, handleCheckBlockCommand, handleClearCommand, handleCloseCommand, handleReopenCommand, handleStatsCommand, handleHelpCommand, handleMaintenanceToggle, handleTemplateCommand, handleUserInfoCommand, handleUidCommand, handleSpamCommand, handleWhitelistCommand, handleLangCommand, handleLangCallback } from '../commands/index.js';
 import { forwardMessageU2A, forwardMessageA2U, handleOldModeAdminReply, handleEditedMessage } from './messages.js';
 import { handleGroupSpam } from './spam.js';
 import { checkInactiveTopics, handleBotMentionOrReply } from '../utils/helpers.js';
 import { handleVerification, handleVerificationCallback } from './verification.js';
+import { getLang, t } from '../services/i18n.js';
+
 
 export async function onUpdate(update, extra = {}) {
     try {
@@ -78,7 +80,7 @@ export async function onUpdate(update, extra = {}) {
                         case '/maintenance':
                             if (commandParts[1] === 'on') return await handleMaintenanceToggle(true, message)
                             if (commandParts[1] === 'off') return await handleMaintenanceToggle(false, message)
-                            return sendMessage({ chat_id, text: 'Usage: /maintenance on | /maintenance off', reply_to_message_id: message.message_id })
+                            return sendMessage({ chat_id, text: t('admin_maintenance_usage', getLang(user)), reply_to_message_id: message.message_id })
                         case '/userinfo': return await handleUserInfoCommand(message)
                         case '/whitelist': return await handleWhitelistCommand(message)
                         case '/white':
@@ -89,7 +91,22 @@ export async function onUpdate(update, extra = {}) {
                             // Quick alias: reply to user message → remove from whitelist
                             message.text = '/whitelist remove'
                             return await handleWhitelistCommand(message)
+                        case '/listadmins': {
+                            const adminsList = config.ADMINS ? config.ADMINS.split(',').map(id => id.trim()).filter(Boolean) : []
+                            const isZh = getLang(user) === 'zh'
+                            let adminText = isZh ? '👥 <b>Bot 管理员</b>\n\n' : '👥 <b>Bot Administrators</b>\n\n'
+                            adminText += (isZh ? '👑 <b>所有者：</b>' : '👑 <b>Owner:</b>') + ` <code>${config.ADMIN_UID}</code>\n\n`
+                            if (adminsList.length > 0) {
+                                adminText += (isZh ? '🔧 <b>全局管理员：</b>\n' : '🔧 <b>Global Admins:</b>\n')
+                                adminsList.forEach(id => adminText += `  • <code>${id}</code>\n`)
+                            } else {
+                                adminText += isZh ? '🔧 <b>全局管理员：</b> <i>无</i>\n' : '🔧 <b>Global Admins:</b> <i>None</i>\n'
+                            }
+                            return sendMessage({ chat_id, text: adminText, parse_mode: 'HTML', reply_to_message_id: message.message_id })
+                        }
+                        case '/lang': return await handleLangCommand(message)
                     }
+
 
                     // Template commands
                     // 模板命令
@@ -99,23 +116,8 @@ export async function onUpdate(update, extra = {}) {
 
                     // Spam configuration commands (Admin Group or Global)
                     // 垃圾邮件配置命令（管理群组或全局）
-                    if (['/addspam', '/removespam', '/listspam', '/checkspam', '/spamstats'].includes(command)) {
+                    if (['/addspam', '/removespam', '/listspam', '/checkspam', '/spamstats', '/refreshspam'].includes(command)) {
                         return await handleSpamCommand(message, command)
-                    }
-
-                    // List Admins
-                    // 列出管理员
-                    if (command === '/listadmins') {
-                        const adminsList = config.ADMINS ? config.ADMINS.split(',').map(id => id.trim()).filter(Boolean) : []
-                        let adminText = '👥 <b>Bot Administrators</b>\n\n'
-                        adminText += `👑 <b>Owner:</b> <code>${config.ADMIN_UID}</code>\n\n`
-                        if (adminsList.length > 0) {
-                            adminText += `🔧 <b>Global Admins:</b>\n`
-                            adminsList.forEach(id => adminText += `  • <code>${id}</code>\n`)
-                        } else {
-                            adminText += `🔧 <b>Global Admins:</b> <i>None</i>\n`
-                        }
-                        return sendMessage({ chat_id, text: adminText, parse_mode: 'HTML', reply_to_message_id: message.message_id })
                     }
                 }
             }
@@ -193,27 +195,37 @@ export async function onUpdate(update, extra = {}) {
                     const parts = data.split(':');
                     const action = parts[1];
                     const targetUid = parts[2];
+                    const adminDbUser = await db.getUser(callbackQuery.from.id).catch(() => null)
+                    const adminLang = getLang(adminDbUser || callbackQuery.from)
 
                     if (action === 'ban') {
                         await db.blockUser(targetUid, true);
                         await answerCallbackQuery(callbackQuery.id, {
-                            text: `✅ User ${targetUid} has been BANNED.`,
+                            text: t('admin_blocked', adminLang, { UID: targetUid }),
                             show_alert: true
                         });
                     } else if (action === 'whitelist') {
                         await db.addToWhitelist(targetUid);
                         await answerCallbackQuery(callbackQuery.id, {
-                            text: `✨ User ${targetUid} has been added to Whitelist.`,
+                            text: t('admin_whitelist_added', adminLang, { UID: targetUid }),
                             show_alert: true
                         });
                     }
                 } else {
+                    const adminLang = getLang(callbackQuery.from)
                     await answerCallbackQuery(callbackQuery.id, {
-                        text: `⚠️ You don't have permission to do this.`,
+                        text: t('admin_unauthorized', adminLang),
                         show_alert: true
                     });
                 }
                 return;
+            }
+
+            // Route admin_lang callbacks (language preference toggle)
+            // 路由语言偏好切换回调
+            if (callbackQuery.data?.startsWith('admin_lang:')) {
+                await handleLangCallback(callbackQuery)
+                return
             }
 
             // Route verification callbacks
@@ -223,6 +235,7 @@ export async function onUpdate(update, extra = {}) {
                 await forwardMessageU2A(verifyResult.pending_message);
             }
             return;
+
         }
 
     } catch (error) {

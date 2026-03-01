@@ -61,18 +61,39 @@ export async function updateUserDb(user) {
 
         await db.incrementCounter('total_messages')
 
-        // Probabilistic log retention cleanup
-        // 概率性日志保留清理
-        const retentionDays = config.ENV_LOG_RETENTION_DAYS || 0
-        if (retentionDays > 0 && Math.random() < 0.02) {
+        // Global log retention cleanup (5% chance per message)
+        // 全局日志保留清理（每条消息5%概率）
+        const retentionDays = config.ENV_LOG_RETENTION_DAYS || 7
+        if (Math.random() < 0.05) {
             try {
+                // 1. Delete message_logs older than retention period (max 500 rows per run)
+                //    删除超过保留期的消息日志（每次最多500条）
                 const cutoffTimeMs = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
-                const delStmt = d1.prepare("DELETE FROM message_logs WHERE user_id = ? AND created_at < ?");
-                await delStmt.bind(user.id.toString(), cutoffTimeMs).run();
+                const delLogs = d1.prepare(`
+                    DELETE FROM message_logs
+                    WHERE rowid IN (
+                        SELECT rowid FROM message_logs WHERE created_at < ? LIMIT 500
+                    )
+                `);
+                await delLogs.bind(cutoffTimeMs).run();
+
+                // 2. Keep only last 7 days of old_msg_map routing entries
+                //    只保留7天内的消息路由映射，旧格式纯字符串条目也一并清除
+                const msgMapCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+                const delMsgMap = d1.prepare(`
+                    DELETE FROM user_states
+                    WHERE user_id = 'old_msg_map'
+                    AND (
+                        CAST(json_extract(state_value, '$.ts') AS INTEGER) < ?
+                        OR json_extract(state_value, '$.ts') IS NULL
+                    )
+                `);
+                await delMsgMap.bind(msgMapCutoff).run();
             } catch (e) {
                 console.error('Log retention cleanup error:', e)
             }
         }
+
 
     } catch (error) {
         console.error('Error updating user database:', error)
@@ -119,8 +140,8 @@ export async function sendContactCard(chat_id, message_thread_id, user) {
 
         const inline_keyboard = [
             [
-                { text: '🚫 Ban User', callback_data: `admin:ban:${user.id}` },
-                { text: '✨ Whitelist', callback_data: `admin:whitelist:${user.id}` }
+                { text: '🚫 封禁 / Ban', callback_data: `admin:ban:${user.id}` },
+                { text: '✨ 白名单 / Whitelist', callback_data: `admin:whitelist:${user.id}` }
             ]
         ]
 
