@@ -7,87 +7,128 @@ binding = "DB"
 database_name = "TGBOT"
 database_id = ""
 
-# ============================================================
-# ⚠️  SECRETS — Set in CF Dashboard → Workers → Secrets
+# ==============================================================
+# ⚠️  密钥 SECRETS — 不要写在这里！
+#     请在 CF 控制台 → Workers → tgcontactbot → Settings → Secrets 中手动设置
 #     Or: wrangler secret put <NAME>
-# ============================================================
-# BOT_TOKEN       your Telegram bot token
-# BOT_SECRET      webhook validation secret (any random string)
-# EXPORT_SECRET   optional, protects /export endpoint
+# ==============================================================
+# BOT_TOKEN       Telegram Bot Token（必填 / Required）
+# BOT_SECRET      Webhook 验证密钥，任意随机字符串（必填 / Required）
+# EXPORT_SECRET   导出接口保护密钥（可选 / Optional）
 
-# ============================================================
-# Required
-# ============================================================
+
 [vars]
-ADMIN_UID = ""    # Bot owner Telegram user ID
-# ADMIN_GROUP_ID   = "-100xxxxxxxxxx" # Admin group (for Group Mode)
-# ADMINS           = "uid1,uid2"      # Additional admin user IDs (comma-separated)
+# ==============================================================
+# ★ 必填 REQUIRED — 部署前必须配置 / Must configure before deploy
+# ==============================================================
 
-# ============================================================
-# Bot Messages
-# ============================================================
-WELCOME_MESSAGE      = "Welcome to use LeviFREE bot!"
-MAINTENANCE_MESSAGE  = "We are under maintenance. Please try again later."
-# START_MSG_URL    = ""               # Remote URL to load start message from
+# 【常改】Bot 所有者 Telegram 用户 ID / Bot owner Telegram user ID
+ADMIN_UID = ""
 
-# ============================================================
-# Verification
-# ============================================================
-ENABLE_VERIFICATION      = "true"   # Enable captcha for new users
-VERIFICATION_VALID_HOURS = "2"      # How long verification lasts (hours)
+# 【常改】欢迎语，新用户发 /start 时显示 / Welcome message shown to new users
+WELCOME_MESSAGE = "Welcome to use LeviFREE bot!"
 
-# ============================================================
-# Notification
-# ============================================================
-ENABLE_NOTIFICATION  = "false"      # Send UID notification on new user
-# NOTIFICATION_URL = ""             # Webhook URL for new user notifications
+# 【常改】维护模式提示语 / Message shown during maintenance mode
+MAINTENANCE_MESSAGE = "We are under maintenance. Please try again later."
 
-# ============================================================
-# Business Hours
-# ============================================================
+# 【偶改】管理群组 ID（群模式必填，私聊模式留空）/ Admin group ID (for Group Mode)
+# ADMIN_GROUP_ID = "-100xxxxxxxxxx"
+
+# 【偶改】额外管理员 ID，逗号分隔 / Additional admin user IDs, comma-separated
+# ADMINS = "uid1,uid2"
+
+
+# ==============================================================
+# ☆ 可选 OPTIONAL — 按需调整 / Adjust as needed
+# ==============================================================
+
+# ── 垃圾过滤 Spam Filter ─────────────────────────────────────
+
+# 【常改】自定义垃圾关键词，逗号分隔 / Custom spam keywords, comma-separated
+SPAM_KEYWORDS = "操逼赚钱,挖掘花,招聘花,提供设备,代理花,兼职,招探花"
+
+# 【常改】远程垃圾关键词黑名单 URL / Remote spam blocklist URL
+SPAM_BLOCKLIST_URL = "https://raw.githubusercontent.com/czy13724/czy13724/levi/blocklist.txt"
+
+# 【偶改】是否启用垃圾过滤 / Enable spam filter
+ENABLE_SPAM_FILTER = "true"
+
+# 【偶改】垃圾处理方式：block = 封禁，delete = 仅删消息 / Spam action: block / delete
+SPAM_ACTION = "block"
+
+# 【偶改】是否自动删除垃圾消息 / Delete spam messages automatically
+DELETE_SPAM_MESSAGE = "true"
+
+# 【少改】群组垃圾检测 / Detect spam in group messages
+GROUP_SPAM_DETECTION = "true"
+
+# 【少改】群组垃圾处理方式：ban / block / Group spam action
+GROUP_SPAM_ACTION = "ban"
+
+# 【少改】群管理员不受反垃圾限制 / Exempt group admins from spam checks
+GROUP_ADMIN_PERMISSIONS = "true"
+
+# ── 验证 Verification ────────────────────────────────────────
+
+# 【常改】是否开启新用户验证（数学题验证码）/ Enable captcha for new users
+ENABLE_VERIFICATION = "true"
+
+# 【少改】验证有效期（小时）/ How long verification lasts (hours)
+VERIFICATION_VALID_HOURS = "2"
+
+# ── 营业时间 Business Hours ──────────────────────────────────
+
+# 【偶改】营业时间，非营业时间自动回复 / Business hours (auto-reply outside these)
 BUSINESS_HOURS_START = "09:00"
 BUSINESS_HOURS_END   = "22:00"
 BUSINESS_TIMEZONE    = "Asia/Shanghai"
 
-# ============================================================
-# Topic / Group Mode
-# ============================================================
-AUTO_CLOSE_INACTIVE_HOURS = "72"    # Auto-close idle topics after N hours
-DELETE_TOPIC_AS_BAN       = "false" # Delete topic = ban user
-GROUP_SPAM_DETECTION      = "true"  # Detect spam in group messages
-GROUP_SPAM_ACTION         = "ban"   # block / ban
-GROUP_ADMIN_PERMISSIONS   = "true"  # Respect group admin permissions
+# ── 防刷屏 Anti-Flood ────────────────────────────────────────
 
-# ============================================================
-# Spam Filter
-# ============================================================
-ENABLE_SPAM_FILTER   = "true"
-SPAM_ACTION          = "block"   # block / delete
-DELETE_SPAM_MESSAGE  = "true"
-SPAM_KEYWORDS        = "操逼赚钱,挖掘花,招聘花,提供设备,代理花,兼职,招探花"
-SPAM_BLOCKLIST_URL   = "https://raw.githubusercontent.com/czy13724/czy13724/levi/blocklist.txt"
+# 【偶改】每个时间窗口最多发多少条消息 / Max messages per flood window
+ANTI_FLOOD_MESSAGES = "5"
 
-# ============================================================
-# Anti-Flood
-# ============================================================
-ANTI_FLOOD_MESSAGES  = "5"  # Max messages per window
-ANTI_FLOOD_SECONDS   = "5"  # Window size in seconds
+# 【偶改】时间窗口大小（秒）/ Flood window size (seconds)
+ANTI_FLOOD_SECONDS = "5"
 
-# ============================================================
-# Broadcast
-# ============================================================
-MAX_BROADCAST_BATCH  = "50"
+# ── 通知 Notification ────────────────────────────────────────
 
-# ============================================================
-# Log Retention
-# ============================================================
-ENV_LOG_RETENTION_DAYS = "7"  # Keep message_logs for N days (0 = disabled)
+# 【偶改】新用户发消息时是否发送 UID 通知 / Send UID notification on new user
+ENABLE_NOTIFICATION = "false"
 
-# ============================================================
-# Advanced / Optional
-# ============================================================
-# WHITELIST_URL        = ""   # Remote URL for whitelisted user IDs
-# SECURITY_DB_URL      = ""   # External security blocklist URL
-# PUBLIC_BASE_URL      = ""   # Public base URL of this worker
+# 【少改】新用户 Webhook 通知地址 / Webhook URL for new user notifications
+# NOTIFICATION_URL = ""
+
+# ── 日志与话题 Logs & Topics ─────────────────────────────────
+
+# 【偶改】消息日志保留天数，0 = 不清理 / Message log retention in days (0 = disabled)
+ENV_LOG_RETENTION_DAYS = "7"
+
+# 【少改】话题多少小时无活动后自动关闭 / Auto-close idle topics after N hours
+AUTO_CLOSE_INACTIVE_HOURS = "72"
+
+# 【少改】删除话题等同封禁用户 / Delete topic = ban user
+DELETE_TOPIC_AS_BAN = "false"
+
+# ── 广播 Broadcast ───────────────────────────────────────────
+
+# 【少改】广播每批发送数量 / Broadcast batch size
+MAX_BROADCAST_BATCH = "50"
+
+# ── 高级 Advanced ────────────────────────────────────────────
+
+# 白名单远程 URL / Remote URL for whitelisted user IDs
+# WHITELIST_URL = ""
+
+# 外部安全黑名单 URL / External security blocklist URL
+# SECURITY_DB_URL = ""
+
+# 开始消息远程 URL / Remote URL to load start message from
+# START_MSG_URL = ""
+
+# Worker 对外访问地址 / Public base URL of this worker
+# PUBLIC_BASE_URL = ""
+
+# 自动翻译（默认关闭）/ Auto-translate (default off)
 # ENABLE_AUTO_TRANSLATE = "false"
 # TRANSLATE_TARGET_LANG = "en"
