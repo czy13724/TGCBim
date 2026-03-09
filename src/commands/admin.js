@@ -9,9 +9,8 @@ import { escapeHtml, delay, formatTime, normalizeId, parseAdmins } from '../util
 import { getSpamKeywords, setSpamKeywords, checkSpam } from '../core/spam.js';
 import { getLang, t } from '../services/i18n.js';
 
-const LISTSPAM_MAX_ITEMS_PER_PAGE = 80
 const LISTSPAM_MAX_BODY_LENGTH = 3200
-const LISTSPAM_BUTTON_PAGE_SIZE = 50
+const LISTSPAM_BUTTON_PAGE_SIZE = 10
 const SYSTEM_CONFIG_KEY = 'system_config'
 const DYNAMIC_ADMINS_KEY = 'dynamic_admins'
 const PENDING_BROADCAST_KEY = 'pending_broadcast'
