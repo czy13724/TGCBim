@@ -607,10 +607,20 @@ export async function handleLangCallback(callbackQuery) {
 
     const choice = callbackQuery.data.split(':')[1]  // 'zh' or 'en'
     const userId = callbackQuery.from.id
+    const existing = await db.getUser(userId).catch(() => null)
+    const currentLang = getLang(existing || callbackQuery.from)
+
+    // Already selected language: return friendly hint and skip message edit.
+    // 已是当前语言：给出友好提示并跳过编辑，避免 "message is not modified" 报错。
+    if (choice === currentLang) {
+        const sameLangText = choice === 'zh' ? '当前已经是中文。' : 'Already using English.'
+        await answerCallbackQuery(callbackQuery.id, { text: sameLangText, show_alert: false })
+        return true
+    }
 
     // Persist pref_lang
     // 持久化语言偏好
-    let dbUser = await db.getUser(userId).catch(() => null)
+    let dbUser = existing
     if (dbUser) {
         dbUser.pref_lang = choice
         await db.setUser(userId, dbUser)
