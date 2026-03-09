@@ -99,7 +99,7 @@ export async function handleHelpCommand(message) {
             text += `/listadmins - 查看所有管理员\n`
             text += `/addadmin /removeadmin - 增删动态管理员（仅所有者）\n`
             text += `/refreshspam - 强制刷新远程关键词列表\n`
-            text += `/audit [页码] 或 /audit <all|ban|whitelist|clear|broadcast> [页码] - 查看管理员审计日志\n`
+            text += `/audit [页码] 或 /audit &lt;all|ban|whitelist|clear|broadcast&gt; [页码] - 查看管理员审计日志\n`
             text += `/lang - 切换管理员界面语言\n`
             text += `\n🛡 SAFE_MODE 开启时，高风险命令仅所有者可用。\n`
         } else {
@@ -124,7 +124,7 @@ export async function handleHelpCommand(message) {
             text += `/listadmins - List all admins\n`
             text += `/addadmin /removeadmin - Manage dynamic admins (owner only)\n`
             text += `/refreshspam - Force refresh remote spam blocklist\n`
-            text += `/audit [page] or /audit <all|ban|whitelist|clear|broadcast> [page] - Show admin audit logs\n`
+            text += `/audit [page] or /audit &lt;all|ban|whitelist|clear|broadcast&gt; [page] - Show admin audit logs\n`
             text += `/lang - Switch admin interface language\n`
             text += `\n🛡 When SAFE_MODE is enabled, high-risk commands are owner-only.\n`
         }
