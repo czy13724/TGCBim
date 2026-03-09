@@ -15,7 +15,7 @@
 | 💤 自动上下班回复 | Business hours auto-reply |
 | ⚡ 防刷屏频率限制 | Anti-flood rate limiting |
 | 🗂️ 话题模式（群组）/ 私聊模式 双支持 | Topic mode (Group) & Legacy (Private) support |
-| � 模板快捷回复 | Template quick replies |
+| 🧩 模板快捷回复 | Template quick replies |
 | 📊 统计信息、消息日志、日志定时清理 | Stats, message logs, retention cleanup |
 | 📡 白名单、全局广播 | Whitelist, broadcast to all users |
 
@@ -553,7 +553,7 @@ refreshspam - 从远程刷新黑名单 / Refresh blocklist
 | `/checkblock <id>` 或回复| 查看封禁状态 / Check block status |
 | `/whitelist list` | 查看完整白名单列表 / View whitelist |
 
-**� 广播与模板 / Broadcast & Templates**（常用）
+**📣 广播与模板 / Broadcast & Templates**（常用）
 
 | 命令 | 说明 |
 | --- | --- |
@@ -563,7 +563,7 @@ refreshspam - 从远程刷新黑名单 / Refresh blocklist
 | `/tpl list` | 查看所有模板 |
 | `/broadcast <内容>` | 向所有用户广播消息 |
 
-**� 信息查询 / Info & Stats**（偶尔使用）
+**🔎 信息查询 / Info & Stats**（偶尔使用）
 
 | 命令 | 说明 |
 | --- | --- |
