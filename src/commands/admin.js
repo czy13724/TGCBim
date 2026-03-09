@@ -2,16 +2,49 @@
  * Admin Commands
  * 管理员命令
  */
-import { config, isGlobalAdminOrOwner, isOwner } from '../config.js';
+import { config, getRuntimeAdmins, isGlobalAdminOrOwner, isOwner, setRuntimeAdmins } from '../config.js';
 import { db, d1, tplGet, tplSet, tplDel, tplList } from '../services/db.js';
 import { sendMessage, copyMessage, editMessage, answerCallbackQuery } from '../services/telegram.js';
-import { escapeHtml, delay, formatTime } from '../utils/utils.js';
+import { escapeHtml, delay, formatTime, normalizeId, parseAdmins } from '../utils/utils.js';
 import { getSpamKeywords, setSpamKeywords, checkSpam } from '../core/spam.js';
 import { getLang, t } from '../services/i18n.js';
 
 const LISTSPAM_MAX_ITEMS_PER_PAGE = 80
 const LISTSPAM_MAX_BODY_LENGTH = 3200
 const LISTSPAM_BUTTON_PAGE_SIZE = 50
+const SYSTEM_CONFIG_KEY = 'system_config'
+const DYNAMIC_ADMINS_KEY = 'dynamic_admins'
+const PENDING_BROADCAST_KEY = 'pending_broadcast'
+
+function userActionKeyboard(uid, lang, isBlocked, isWhitelisted) {
+    const banText = isBlocked ? (lang === 'zh' ? '✅ 解封' : '✅ Unblock') : (lang === 'zh' ? '🚫 封禁' : '🚫 Block')
+    const whitelistText = isWhitelisted ? (lang === 'zh' ? '🗑 白名单移除' : '🗑 Unwhitelist') : (lang === 'zh' ? '⭐ 白名单添加' : '⭐ Whitelist')
+    const clearText = lang === 'zh' ? '🧹 清空历史' : '🧹 Clear History'
+    return {
+        inline_keyboard: [
+            [
+                { text: banText, callback_data: `admin:useract:${isBlocked ? 'unban' : 'ban'}:${uid}` },
+                { text: whitelistText, callback_data: `admin:useract:${isWhitelisted ? 'unwhite' : 'white'}:${uid}` }
+            ],
+            [
+                { text: clearText, callback_data: `admin:useract:clear:${uid}` }
+            ]
+        ]
+    }
+}
+
+async function getDynamicAdmins() {
+    const saved = await db.getUserState(SYSTEM_CONFIG_KEY, DYNAMIC_ADMINS_KEY).catch(() => null)
+    if (!Array.isArray(saved)) return []
+    return saved.map(v => normalizeId(v)).filter(Boolean)
+}
+
+async function saveDynamicAdmins(admins) {
+    const normalized = Array.from(new Set((admins || []).map(v => normalizeId(v)).filter(Boolean)))
+    await db.setUserState(SYSTEM_CONFIG_KEY, DYNAMIC_ADMINS_KEY, normalized)
+    setRuntimeAdmins(normalized)
+    return normalized
+}
 
 async function logAdminAction(message, action, targetId = null, success = true, detail = null) {
     await db.addAdminAuditLog({
@@ -53,59 +86,120 @@ export async function handleBroadcastCommand(message) {
         return sendMessage({ chat_id: message.chat.id, text: 'Usage: /broadcast <text> or reply to a message.' })
     }
 
-    sendMessage({ chat_id: message.chat.id, text: `📢 Broadcast started in background...` })
-    await logAdminAction(message, 'broadcast_start', null, true, `args_length=${args.length}`)
+    const users = await db.getAllUsers(100000)
+    const payload = {
+        mode: message.reply_to_message ? 'reply' : 'text',
+        text: text || '',
+        source_chat_id: message.chat.id,
+        source_message_id: message.reply_to_message?.message_id || null,
+        created_at: Date.now(),
+        recipient_count: users.length
+    }
+    await db.setUserState(message.from.id, PENDING_BROADCAST_KEY, payload)
 
-    // Execute broadcast logic
-    // 执行广播逻辑
-    const runBroadcast = async () => {
-        const users = await db.getAllUsers(100000) // Large limit for pagination
-        // 分页的大限制
-        let count = 0
-        let failed = 0
-        const startTime = Date.now()
+    const modeLabel = payload.mode === 'reply' ? t('admin_broadcast_mode_reply', lang) : t('admin_broadcast_mode_text', lang)
+    await sendMessage({
+        chat_id: message.chat.id,
+        text: `📢 <b>${t('admin_broadcast_preview_title', lang)}</b>\n\n${t('admin_broadcast_preview_info', lang, { COUNT: String(users.length), MODE: modeLabel })}`,
+        parse_mode: 'HTML',
+        reply_markup: {
+            inline_keyboard: [[
+                { text: t('admin_broadcast_confirm_btn', lang), callback_data: `admin:broadcast:confirm:${message.from.id}` },
+                { text: t('admin_broadcast_cancel_btn', lang), callback_data: `admin:broadcast:cancel:${message.from.id}` }
+            ]]
+        },
+        reply_to_message_id: message.message_id
+    })
+    await logAdminAction(message, 'broadcast_preview', null, true, `args_length=${args.length}`)
+}
 
-        const method = message.reply_to_message ? 'copyMessage' : 'sendMessage'
+async function executeBroadcast(payload, originMessage, lang) {
+    await logAdminAction(originMessage, 'broadcast_start', null, true, `mode=${payload.mode},recipients=${payload.recipient_count}`)
+    const users = await db.getAllUsers(100000)
+    let count = 0
+    let failed = 0
+    const startTime = Date.now()
 
-        for (const user of users) {
-            try {
-                if (method === 'copyMessage') {
-                    await copyMessage({
-                        chat_id: user.user_id,
-                        from_chat_id: message.chat.id,
-                        message_id: message.reply_to_message.message_id
-                    })
-                } else {
-                    await sendMessage({
-                        chat_id: user.user_id,
-                        text: text
-                    })
-                }
-                count++
-            } catch (e) {
-                failed++
-                console.error(`Broadcast failed for ${user.user_id}:`, e)
+    for (const user of users) {
+        try {
+            if (payload.mode === 'reply' && payload.source_message_id) {
+                await copyMessage({
+                    chat_id: user.user_id,
+                    from_chat_id: payload.source_chat_id,
+                    message_id: payload.source_message_id
+                })
+            } else {
+                await sendMessage({ chat_id: user.user_id, text: payload.text })
             }
-            if (count % 20 === 0) await delay(200) // Rate limit protection
-            // 速率限制保护
+            count++
+        } catch (e) {
+            failed++
+            console.error(`Broadcast failed for ${user.user_id}:`, e)
         }
+        if ((count + failed) % 20 === 0) await delay(200)
+    }
 
-        const duration = ((Date.now() - startTime) / 1000).toFixed(1)
-        await sendMessage({
-            chat_id: message.chat.id,
-            text: `✅ Broadcast complete.\nSent: ${count}\nFailed: ${failed}\nDuration: ${duration}s`,
-            reply_to_message_id: message.message_id
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1)
+    await sendMessage({
+        chat_id: originMessage.chat.id,
+        text: `✅ Broadcast complete.\nSent: ${count}\nFailed: ${failed}\nDuration: ${duration}s`,
+        reply_to_message_id: originMessage.message_id
+    })
+    await logAdminAction(originMessage, 'broadcast_finish', null, true, `sent=${count},failed=${failed},duration=${duration}s`)
+}
+
+export async function handleBroadcastCallback(callbackQuery) {
+    const data = callbackQuery?.data || ''
+    if (!data.startsWith('admin:broadcast:')) return false
+
+    const lang = await getAdminLang(callbackQuery.from)
+    const [, , action, ownerId] = data.split(':')
+    if (ownerId && normalizeId(ownerId) !== normalizeId(callbackQuery.from.id)) {
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_unauthorized', lang), show_alert: true })
+        return true
+    }
+
+    const pending = await db.getUserState(callbackQuery.from.id, PENDING_BROADCAST_KEY).catch(() => null)
+    if (!pending) {
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_broadcast_nothing', lang), show_alert: true })
+        return true
+    }
+
+    if (action === 'cancel') {
+        await db.deleteUserState(callbackQuery.from.id, PENDING_BROADCAST_KEY)
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_broadcast_cancelled', lang), show_alert: false })
+        await editMessage({
+            chat_id: callbackQuery.message.chat.id,
+            message_id: callbackQuery.message.message_id,
+            text: t('admin_broadcast_cancelled', lang)
+        }).catch(() => { })
+        await db.addAdminAuditLog({
+            admin_id: callbackQuery.from.id,
+            action: 'broadcast_cancel',
+            chat_id: callbackQuery.message?.chat?.id,
+            thread_id: callbackQuery.message?.message_thread_id,
+            success: true,
+            detail: 'inline_button'
         })
-        await logAdminAction(message, 'broadcast_finish', null, true, `sent=${count},failed=${failed},duration=${duration}s`)
+        return true
     }
 
-    // Run in background using waitUntil if available
-    // 如果可用，使用 waitUntil 在后台运行
-    if (message.waitUntil) {
-        message.waitUntil(runBroadcast())
-    } else {
-        runBroadcast().catch(e => console.error('Broadcast execution error:', e))
+    await db.deleteUserState(callbackQuery.from.id, PENDING_BROADCAST_KEY)
+    await answerCallbackQuery(callbackQuery.id, { text: t('admin_broadcast_confirmed', lang), show_alert: false })
+
+    const originMessage = {
+        from: callbackQuery.from,
+        chat: callbackQuery.message.chat,
+        message_id: callbackQuery.message.message_id,
+        message_thread_id: callbackQuery.message.message_thread_id
     }
+    const run = executeBroadcast(pending, originMessage, lang).catch(e => console.error('Broadcast execution error:', e))
+    if (callbackQuery.waitUntil) {
+        callbackQuery.waitUntil(run)
+    } else {
+        run
+    }
+    return true
 }
 
 // === Block / Unblock ===
@@ -251,6 +345,92 @@ export async function handleClearCommand(message) {
         await logAdminAction(message, 'clear_history', targetId, false, e.message)
         return sendMessage({ chat_id: message.chat.id, text: t('admin_log_clear_error', lang, { MSG: e.message }) })
     }
+}
+
+export async function handleAddAdminCommand(message) {
+    const lang = await getAdminLang(message.from)
+    if (!isOwner(message.from.id)) {
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_addadmin_owner_only', lang), reply_to_message_id: message.message_id })
+    }
+    if (await denyIfSafeMode(message, lang, 'addadmin')) return
+
+    const args = message.text.trim().split(/\s+/)
+    const targetUid = normalizeId(args[1])
+    if (!targetUid) {
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_addadmin_usage', lang), reply_to_message_id: message.message_id })
+    }
+    if (normalizeId(config.ADMIN_UID) === targetUid) {
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_addadmin_exists', lang, { UID: targetUid }), reply_to_message_id: message.message_id })
+    }
+
+    const fixedAdmins = parseAdmins(config.ADMINS)
+    if (fixedAdmins.has(targetUid)) {
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_addadmin_exists', lang, { UID: targetUid }), reply_to_message_id: message.message_id })
+    }
+
+    const dynamicAdmins = await getDynamicAdmins()
+    if (dynamicAdmins.includes(targetUid)) {
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_addadmin_exists', lang, { UID: targetUid }), reply_to_message_id: message.message_id })
+    }
+
+    const nextAdmins = [...dynamicAdmins, targetUid]
+    await saveDynamicAdmins(nextAdmins)
+    await logAdminAction(message, 'admin_add', targetUid, true, 'owner_command')
+    return sendMessage({ chat_id: message.chat.id, text: t('admin_addadmin_done', lang, { UID: targetUid }), reply_to_message_id: message.message_id })
+}
+
+export async function handleRemoveAdminCommand(message) {
+    const lang = await getAdminLang(message.from)
+    if (!isOwner(message.from.id)) {
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_addadmin_owner_only', lang), reply_to_message_id: message.message_id })
+    }
+    if (await denyIfSafeMode(message, lang, 'removeadmin')) return
+
+    const args = message.text.trim().split(/\s+/)
+    const targetUid = normalizeId(args[1])
+    if (!targetUid) {
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_removeadmin_usage', lang), reply_to_message_id: message.message_id })
+    }
+
+    const dynamicAdmins = await getDynamicAdmins()
+    if (!dynamicAdmins.includes(targetUid)) {
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_removeadmin_not_found', lang, { UID: targetUid }), reply_to_message_id: message.message_id })
+    }
+
+    const nextAdmins = dynamicAdmins.filter(v => v !== targetUid)
+    await saveDynamicAdmins(nextAdmins)
+    await logAdminAction(message, 'admin_remove', targetUid, true, 'owner_command')
+    return sendMessage({ chat_id: message.chat.id, text: t('admin_removeadmin_done', lang, { UID: targetUid }), reply_to_message_id: message.message_id })
+}
+
+export async function handleListAdminsCommand(message) {
+    const lang = await getAdminLang(message.from)
+    const zh = lang === 'zh'
+    const fixedAdmins = Array.from(parseAdmins(config.ADMINS))
+    const dynamicAdmins = getRuntimeAdmins()
+
+    let text = zh ? '👥 <b>Bot 管理员</b>\n\n' : '👥 <b>Bot Administrators</b>\n\n'
+    text += (zh ? '👑 <b>所有者：</b>' : '👑 <b>Owner:</b>') + ` <code>${escapeHtml(normalizeId(config.ADMIN_UID))}</code>\n\n`
+
+    text += (zh ? '🔧 <b>固定管理员：</b>\n' : '🔧 <b>Fixed Admins:</b>\n')
+    if (fixedAdmins.length) {
+        fixedAdmins.forEach(id => { text += `  • <code>${escapeHtml(id)}</code>\n` })
+    } else {
+        text += zh ? '  • <i>无</i>\n' : '  • <i>None</i>\n'
+    }
+
+    text += `\n${zh ? '⚙️ <b>动态管理员：</b>\n' : '⚙️ <b>Dynamic Admins:</b>\n'}`
+    if (dynamicAdmins.length) {
+        dynamicAdmins.forEach(id => { text += `  • <code>${escapeHtml(id)}</code>\n` })
+    } else {
+        text += zh ? '  • <i>无</i>\n' : '  • <i>None</i>\n'
+    }
+
+    if (isOwner(message.from.id)) {
+        text += zh ? '\n用法：/addadmin <uid>，/removeadmin <uid>' : '\nUsage: /addadmin <uid>, /removeadmin <uid>'
+    }
+
+    return sendMessage({ chat_id: message.chat.id, text, parse_mode: 'HTML', reply_to_message_id: message.message_id })
 }
 
 export async function handleMaintenanceToggle(enable, message) {
@@ -421,10 +601,11 @@ export async function handleUserInfoCommand(message) {
     if (!targetUser) return sendMessage({ chat_id: message.chat.id, text: t('admin_user_not_found', lang) })
 
     const isBlocked = await db.isUserBlocked(targetUser.user_id)
+    const isWhitelisted = await db.isUserWhitelisted(targetUser.user_id)
 
     const labels = lang === 'zh'
-        ? { title: '👤 <b>用户信息</b>', id: 'ID', name: '姓名', username: '用户名', created: '注册时间', status: '状态', blocked: '🔴 已封禁', active: '🟢 正常' }
-        : { title: '👤 <b>User Info</b>', id: 'ID', name: 'Name', username: 'Username', created: 'Created', status: 'Status', blocked: '🔴 Blocked', active: '🟢 Active' }
+        ? { title: '👤 <b>用户信息</b>', id: 'ID', name: '姓名', username: '用户名', created: '注册时间', status: '状态', blocked: '🔴 已封禁', active: '🟢 正常', white: '白名单' }
+        : { title: '👤 <b>User Info</b>', id: 'ID', name: 'Name', username: 'Username', created: 'Created', status: 'Status', blocked: '🔴 Blocked', active: '🟢 Active', white: 'Whitelisted' }
 
     let info = `${labels.title}\n`
     info += `${labels.id}: <code>${targetUser.user_id}</code>\n`
@@ -432,8 +613,83 @@ export async function handleUserInfoCommand(message) {
     info += `${labels.username}: @${targetUser.username || ''}\n`
     info += `${labels.created}: ${formatTime(targetUser.created_at)}\n`
     info += `${labels.status}: ${isBlocked ? labels.blocked : labels.active}\n`
+    info += `${labels.white}: ${isWhitelisted ? '✅' : '❌'}\n`
 
-    await sendMessage({ chat_id: message.chat.id, text: info, parse_mode: 'HTML' })
+    await sendMessage({
+        chat_id: message.chat.id,
+        text: info,
+        parse_mode: 'HTML',
+        reply_markup: userActionKeyboard(targetUser.user_id, lang, isBlocked, isWhitelisted)
+    })
+}
+
+export async function handleUserActionCallback(callbackQuery) {
+    const data = callbackQuery?.data || ''
+    if (!data.startsWith('admin:useract:')) return false
+
+    const lang = await getAdminLang(callbackQuery.from)
+    if (!isGlobalAdminOrOwner(callbackQuery.from.id)) {
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_unauthorized', lang), show_alert: true })
+        return true
+    }
+
+    const [, , action, uid] = data.split(':')
+    if (!uid) {
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_no_target', lang), show_alert: true })
+        return true
+    }
+
+    if (config.SAFE_MODE && !isOwner(callbackQuery.from.id) && ['ban', 'unban', 'clear'].includes(action)) {
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_safe_mode_blocked', lang), show_alert: true })
+        return true
+    }
+
+    try {
+        if (action === 'ban') {
+            await db.blockUser(uid, true)
+            await db.addAdminAuditLog({ admin_id: callbackQuery.from.id, action: 'callback_ban', target_id: uid, chat_id: callbackQuery.message?.chat?.id, thread_id: callbackQuery.message?.message_thread_id, success: true, detail: 'userinfo_button' })
+            await answerCallbackQuery(callbackQuery.id, { text: t('admin_blocked', lang, { UID: uid }), show_alert: false })
+        } else if (action === 'unban') {
+            await db.blockUser(uid, false)
+            await db.blockUserOld(uid, false)
+            await db.addAdminAuditLog({ admin_id: callbackQuery.from.id, action: 'callback_unban', target_id: uid, chat_id: callbackQuery.message?.chat?.id, thread_id: callbackQuery.message?.message_thread_id, success: true, detail: 'userinfo_button' })
+            await answerCallbackQuery(callbackQuery.id, { text: t('admin_unblocked', lang, { UID: uid }), show_alert: false })
+        } else if (action === 'white') {
+            await db.addToWhitelist(uid)
+            await db.addAdminAuditLog({ admin_id: callbackQuery.from.id, action: 'callback_whitelist', target_id: uid, chat_id: callbackQuery.message?.chat?.id, thread_id: callbackQuery.message?.message_thread_id, success: true, detail: 'userinfo_button' })
+            await answerCallbackQuery(callbackQuery.id, { text: t('admin_whitelist_added', lang, { UID: uid }), show_alert: false })
+        } else if (action === 'unwhite') {
+            await db.removeFromWhitelist(uid)
+            await db.addAdminAuditLog({ admin_id: callbackQuery.from.id, action: 'callback_unwhitelist', target_id: uid, chat_id: callbackQuery.message?.chat?.id, thread_id: callbackQuery.message?.message_thread_id, success: true, detail: 'userinfo_button' })
+            await answerCallbackQuery(callbackQuery.id, { text: t('admin_whitelist_removed', lang, { UID: uid }), show_alert: false })
+        } else if (action === 'clear') {
+            const result = await db.clearUserHistory(uid)
+            await db.addAdminAuditLog({ admin_id: callbackQuery.from.id, action: 'callback_clear', target_id: uid, chat_id: callbackQuery.message?.chat?.id, thread_id: callbackQuery.message?.message_thread_id, success: true, detail: `logs=${result.deletedLogs},states=${result.deletedStates},maps=${result.deletedMaps}` })
+            await answerCallbackQuery(callbackQuery.id, { text: t('admin_clear_done', lang, { UID: uid, LOGS: String(result.deletedLogs), STATES: String(result.deletedStates), MAPS: String(result.deletedMaps) }), show_alert: true })
+        } else {
+            await answerCallbackQuery(callbackQuery.id, { text: 'Unsupported action', show_alert: false })
+        }
+
+        const user = await db.getUser(uid)
+        if (user && callbackQuery.message) {
+            const blocked = await db.isUserBlocked(uid)
+            const whitelisted = await db.isUserWhitelisted(uid)
+            const labels = lang === 'zh'
+                ? { title: '👤 <b>用户信息</b>', id: 'ID', name: '姓名', username: '用户名', created: '注册时间', status: '状态', blocked: '🔴 已封禁', active: '🟢 正常', white: '白名单' }
+                : { title: '👤 <b>User Info</b>', id: 'ID', name: 'Name', username: 'Username', created: 'Created', status: 'Status', blocked: '🔴 Blocked', active: '🟢 Active', white: 'Whitelisted' }
+            const info = `${labels.title}\n${labels.id}: <code>${user.user_id}</code>\n${labels.name}: ${escapeHtml(user.first_name)} ${escapeHtml(user.last_name || '')}\n${labels.username}: @${user.username || ''}\n${labels.created}: ${formatTime(user.created_at)}\n${labels.status}: ${blocked ? labels.blocked : labels.active}\n${labels.white}: ${whitelisted ? '✅' : '❌'}\n`
+            await editMessage({
+                chat_id: callbackQuery.message.chat.id,
+                message_id: callbackQuery.message.message_id,
+                text: info,
+                parse_mode: 'HTML',
+                reply_markup: userActionKeyboard(user.user_id, lang, blocked, whitelisted)
+            }).catch(() => { })
+        }
+    } catch (e) {
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_error', lang, { MSG: 'action failed' }), show_alert: true }).catch(() => { })
+    }
+    return true
 }
 
 export async function handleUidCommand(message) {

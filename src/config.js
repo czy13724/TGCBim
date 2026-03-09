@@ -52,6 +52,8 @@ export const config = {
     BASE_ORIGIN: '',
 };
 
+const runtimeAdmins = new Set()
+
 export function initConfig(env) {
     if (!env) return;
 
@@ -118,10 +120,22 @@ export function isOwner(id) {
 
 export function isAdminUser(id) {
     if (isOwner(id)) return true
+    const normalized = normalizeId(id)
     const set = parseAdmins(config.ADMINS)
-    return set.has(normalizeId(id))
+    return set.has(normalized) || runtimeAdmins.has(normalized)
 }
 
 export function isGlobalAdminOrOwner(id) {
     return isOwner(id) || isAdminUser(id)
+}
+
+export function setRuntimeAdmins(adminIds = []) {
+    runtimeAdmins.clear()
+    for (const adminId of adminIds) {
+        runtimeAdmins.add(normalizeId(adminId))
+    }
+}
+
+export function getRuntimeAdmins() {
+    return Array.from(runtimeAdmins)
 }

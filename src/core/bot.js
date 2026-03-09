@@ -2,19 +2,29 @@
  * Main Update Handler
  * 主更新处理程序
  */
-import { config, isGlobalAdminOrOwner, isOwner } from '../config.js';
+import { config, isGlobalAdminOrOwner, isOwner, setRuntimeAdmins } from '../config.js';
 import { db, d1 } from '../services/db.js';
 import { requestTelegram, sendMessage, answerCallbackQuery, getRateLimitStatus, isGroupAdmin } from '../services/telegram.js';
-import { handleStart, handleBroadcastCommand, handleBlockCommand, handleUnblockCommand, handleCheckBlockCommand, handleClearCommand, handleStatsCommand, handleHelpCommand, handleMaintenanceCommand, handleTemplateCommand, handleUserInfoCommand, handleUidCommand, handleSpamCommand, handleWhitelistCommand, handleLangCommand, handleLangCallback, handleAuditCommand, handleMaintenanceCallback, handleAuditCallback, handleListSpamCallback } from '../commands/index.js';
+import { handleStart, handleAddAdminCommand, handleAuditCallback, handleAuditCommand, handleBlockCommand, handleBroadcastCallback, handleBroadcastCommand, handleCheckBlockCommand, handleClearCommand, handleHelpCommand, handleLangCallback, handleLangCommand, handleListAdminsCommand, handleListSpamCallback, handleMaintenanceCallback, handleMaintenanceCommand, handleRemoveAdminCommand, handleSpamCommand, handleStatsCommand, handleTemplateCommand, handleUidCommand, handleUserActionCallback, handleUserInfoCommand, handleUnblockCommand, handleWhitelistCommand } from '../commands/index.js';
 import { forwardMessageU2A, forwardMessageA2U, handleOldModeAdminReply, handleEditedMessage } from './messages.js';
 import { handleGroupSpam } from './spam.js';
 import { checkInactiveTopics, handleBotMentionOrReply } from '../utils/helpers.js';
 import { handleVerification, handleVerificationCallback } from './verification.js';
 import { getLang, t } from '../services/i18n.js';
 
+let dynamicAdminCacheAt = 0
+async function refreshDynamicAdminsCache() {
+    const now = Date.now()
+    if (now - dynamicAdminCacheAt < 10000) return
+    dynamicAdminCacheAt = now
+    const saved = await db.getUserState('system_config', 'dynamic_admins').catch(() => null)
+    setRuntimeAdmins(Array.isArray(saved) ? saved : [])
+}
+
 
 export async function onUpdate(update, extra = {}) {
     try {
+        await refreshDynamicAdminsCache()
         // Scheduled cleanup (probabilistic)
         // 定时清理（概率性）
         if (Math.random() < 0.1) {
@@ -64,6 +74,8 @@ export async function onUpdate(update, extra = {}) {
 
                     switch (command) {
                         case '/clear': return await handleClearCommand(message)
+                        case '/addadmin': return await handleAddAdminCommand(message)
+                        case '/removeadmin': return await handleRemoveAdminCommand(message)
                         case '/broadcast':
                             message.waitUntil = extra.waitUntil
                             return await handleBroadcastCommand(message)
@@ -91,19 +103,7 @@ export async function onUpdate(update, extra = {}) {
                             // Quick alias: reply to user message → remove from whitelist
                             message.text = '/whitelist remove'
                             return await handleWhitelistCommand(message)
-                        case '/listadmins': {
-                            const adminsList = config.ADMINS ? config.ADMINS.split(',').map(id => id.trim()).filter(Boolean) : []
-                            const isZh = getLang(user) === 'zh'
-                            let adminText = isZh ? '👥 <b>Bot 管理员</b>\n\n' : '👥 <b>Bot Administrators</b>\n\n'
-                            adminText += (isZh ? '👑 <b>所有者：</b>' : '👑 <b>Owner:</b>') + ` <code>${config.ADMIN_UID}</code>\n\n`
-                            if (adminsList.length > 0) {
-                                adminText += (isZh ? '🔧 <b>全局管理员：</b>\n' : '🔧 <b>Global Admins:</b>\n')
-                                adminsList.forEach(id => adminText += `  • <code>${id}</code>\n`)
-                            } else {
-                                adminText += isZh ? '🔧 <b>全局管理员：</b> <i>无</i>\n' : '🔧 <b>Global Admins:</b> <i>None</i>\n'
-                            }
-                            return sendMessage({ chat_id, text: adminText, parse_mode: 'HTML', reply_to_message_id: message.message_id })
-                        }
+                        case '/listadmins': return await handleListAdminsCommand(message)
                         case '/lang': return await handleLangCommand(message)
                         case '/audit': return await handleAuditCommand(message)
                     }
@@ -185,7 +185,13 @@ export async function onUpdate(update, extra = {}) {
         // 内联按钮回调
         if (update.callback_query) {
             const callbackQuery = update.callback_query;
+            callbackQuery.waitUntil = extra.waitUntil
             const data = callbackQuery.data;
+
+            if (callbackQuery.data?.startsWith('admin:broadcast:')) {
+                await handleBroadcastCallback(callbackQuery)
+                return
+            }
 
             if (callbackQuery.data?.startsWith('admin:maint_')) {
                 await handleMaintenanceCallback(callbackQuery)
@@ -199,6 +205,11 @@ export async function onUpdate(update, extra = {}) {
 
             if (callbackQuery.data?.startsWith('admin:listspam:')) {
                 await handleListSpamCallback(callbackQuery)
+                return
+            }
+
+            if (callbackQuery.data?.startsWith('admin:useract:')) {
+                await handleUserActionCallback(callbackQuery)
                 return
             }
 
