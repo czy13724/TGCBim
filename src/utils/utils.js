@@ -1,6 +1,6 @@
 /**
- * Utility functions for tgcontactbot module
- * tgcontactbot 模块的工具函数
+ * Utility functions for TGCBim module
+ * TGCBim 模块的工具函数
  */
 
 export function escapeHtml(text) {

@@ -1,7 +1,7 @@
-# TgContactBot
+# TGCBim
 
-> 一个部署在 **Cloudflare Workers** + **D1 数据库** 上的高性能 Telegram 留言板机器人。  
-> A high-performance Telegram contact bot running on **Cloudflare Workers** + **D1 Database**.
+> `TGCBim` = **Telegram Contact Bot - Instant Messaging**（双向即时消息机器人）。  
+> A high-performance Telegram contact bot for instant two-way messaging on **Cloudflare Workers** + **D1 Database**.
 
 ---
 
@@ -24,7 +24,7 @@
 ## 📂 项目结构 / Project Structure
 
 ```
-TgContactBot/
+TGCBim/
 ├── index.js            # Worker 入口包装 / Entry wrapper
 ├── wrangler.toml       # CF 部署配置 / Deployment config
 ├── schema.sql          # 数据库建表 SQL / DB schema

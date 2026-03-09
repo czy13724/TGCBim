@@ -1,6 +1,6 @@
 /**
- * Configuration for tgcontactbot
- * tgcontactbot 的配置
+ * Configuration for TGCBim
+ * TGCBim 的配置
  */
 import { normalizeId, parseAdmins } from './utils/utils.js';
 
