@@ -1,15 +1,15 @@
-name = "tgcontactbot"
+name = "tgcbim"
 main = "index.js"
 compatibility_date = "2024-02-28"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "tgcontactbot"
-database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+database_name = "tgcbim"
+database_id = "27a21f85-db1c-46d6-9cb4-4bca9b598d2f"
 
 # ==============================================================
 # ⚠️  密钥 SECRETS — 不要写在这里！
-#     请在 CF 控制台 → Workers → tgcontactbot → Settings → Secrets 中手动设置
+#     请在 CF 控制台 → Workers → tgcbim → Settings → Secrets 中手动设置
 #     Or: wrangler secret put <NAME>
 # ==============================================================
 # BOT_TOKEN       Telegram Bot Token（必填 / Required）
@@ -51,7 +51,7 @@ SAFE_MODE = "false"
 SPAM_KEYWORDS = "操逼赚钱,挖掘花,招聘花,提供设备,代理花,兼职,招探花"
 
 # 【常改】远程垃圾关键词黑名单 URL / Remote spam blocklist URL
-SPAM_BLOCKLIST_URL = "https://raw.githubusercontent.com/your-org/TgContactBot/master/blocklist.txt"
+SPAM_BLOCKLIST_URL = "https://raw.githubusercontent.com/your-org/TGCBim/master/blocklist.txt"
 
 # 【偶改】是否启用垃圾过滤 / Enable spam filter
 ENABLE_SPAM_FILTER = "true"
