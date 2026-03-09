@@ -452,6 +452,51 @@ export class Database {
         }
     }
 
+    async clearUserHistory(user_id) {
+        const uid = user_id.toString();
+        let deletedLogs = 0;
+        let deletedStates = 0;
+        let deletedMaps = 0;
+
+        try {
+            const delLogs = d1.prepare("DELETE FROM message_logs WHERE user_id = ?");
+            const r1 = await delLogs.bind(uid).run();
+            deletedLogs += Number(r1?.meta?.changes || 0);
+        } catch (e) {
+            console.error('Error clearing message_logs:', e);
+        }
+
+        try {
+            const delStates = d1.prepare("DELETE FROM user_states WHERE user_id = ?");
+            const r2 = await delStates.bind(uid).run();
+            deletedStates += Number(r2?.meta?.changes || 0);
+        } catch (e) {
+            console.error('Error clearing user_states by user_id:', e);
+        }
+
+        try {
+            const delGroupStates = d1.prepare("DELETE FROM user_states WHERE user_id = ? AND state_key LIKE 'group_msg:%'");
+            const r3 = await delGroupStates.bind(uid).run();
+            deletedStates += Number(r3?.meta?.changes || 0);
+        } catch (e) {
+            console.error('Error clearing group_msg states:', e);
+        }
+
+        try {
+            const delOldMap = d1.prepare(`
+                DELETE FROM user_states
+                WHERE user_id = 'old_msg_map'
+                AND CAST(json_extract(state_value, '$.uid') AS TEXT) = ?
+            `);
+            const r4 = await delOldMap.bind(uid).run();
+            deletedMaps += Number(r4?.meta?.changes || 0);
+        } catch (e) {
+            console.error('Error clearing old_msg_map entries:', e);
+        }
+
+        return { deletedLogs, deletedStates, deletedMaps };
+    }
+
     async addAdminAuditLog({
         admin_id,
         action,

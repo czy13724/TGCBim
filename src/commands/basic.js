@@ -88,9 +88,7 @@ export async function handleHelpCommand(message) {
             text += `/userinfo - 查看用户信息（回复或话题中）\n`
             text += `/stats - Bot 统计信息\n`
             text += `/broadcast - 向所有用户广播消息\n`
-            text += `/clear - 清除今日日志（话题中）\n`
-            text += `/close - 关闭话题\n`
-            text += `/reopen - 重新开启话题\n`
+            text += `/clear - 清除指定用户历史（回复/话题/ID）\n`
             text += `/tpl add|del|list|&lt;键&gt; - 模板管理\n`
             text += `/spamstats - 垃圾拦截统计\n`
             text += `/listspam - 查看垃圾关键词列表\n`
@@ -113,9 +111,7 @@ export async function handleHelpCommand(message) {
             text += `/userinfo - Get user info (reply or in topic)\n`
             text += `/stats - Bot statistics\n`
             text += `/broadcast - Broadcast message to all users\n`
-            text += `/clear - Clear today's log (in topic)\n`
-            text += `/close - Close topic\n`
-            text += `/reopen - Reopen topic\n`
+            text += `/clear - Clear target user history (reply/topic/id)\n`
             text += `/tpl add|del|list|&lt;key&gt; - Template management\n`
             text += `/spamstats - Spam statistics\n`
             text += `/listspam - List spam keywords\n`

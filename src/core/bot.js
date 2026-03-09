@@ -5,7 +5,7 @@
 import { config, isGlobalAdminOrOwner, isOwner } from '../config.js';
 import { db, d1 } from '../services/db.js';
 import { requestTelegram, sendMessage, answerCallbackQuery, getRateLimitStatus, isGroupAdmin } from '../services/telegram.js';
-import { handleStart, handleBroadcastCommand, handleBlockCommand, handleUnblockCommand, handleCheckBlockCommand, handleClearCommand, handleCloseCommand, handleReopenCommand, handleStatsCommand, handleHelpCommand, handleMaintenanceCommand, handleTemplateCommand, handleUserInfoCommand, handleUidCommand, handleSpamCommand, handleWhitelistCommand, handleLangCommand, handleLangCallback, handleAuditCommand, handleMaintenanceCallback, handleAuditCallback } from '../commands/index.js';
+import { handleStart, handleBroadcastCommand, handleBlockCommand, handleUnblockCommand, handleCheckBlockCommand, handleClearCommand, handleStatsCommand, handleHelpCommand, handleMaintenanceCommand, handleTemplateCommand, handleUserInfoCommand, handleUidCommand, handleSpamCommand, handleWhitelistCommand, handleLangCommand, handleLangCallback, handleAuditCommand, handleMaintenanceCallback, handleAuditCallback } from '../commands/index.js';
 import { forwardMessageU2A, forwardMessageA2U, handleOldModeAdminReply, handleEditedMessage } from './messages.js';
 import { handleGroupSpam } from './spam.js';
 import { checkInactiveTopics, handleBotMentionOrReply } from '../utils/helpers.js';
@@ -73,8 +73,6 @@ export async function onUpdate(update, extra = {}) {
                         case '/unban': return await handleUnblockCommand(message)
                         case '/checkblock': return await handleCheckBlockCommand(message)
                         case '/uid': return await handleUidCommand(message)
-                        case '/close': return await handleCloseCommand(message)
-                        case '/reopen': return await handleReopenCommand(message)
                         case '/stats': return await handleStatsCommand(message)
                         case '/help': return await handleHelpCommand(message)
                         case '/maintenance':

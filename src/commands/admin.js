@@ -4,7 +4,7 @@
  */
 import { config, isGlobalAdminOrOwner, isOwner } from '../config.js';
 import { db, d1, tplGet, tplSet, tplDel, tplList } from '../services/db.js';
-import { sendMessage, copyMessage, closeForumTopic, reopenForumTopic, editMessage, answerCallbackQuery } from '../services/telegram.js';
+import { sendMessage, copyMessage, editMessage, answerCallbackQuery } from '../services/telegram.js';
 import { escapeHtml, delay, formatTime } from '../utils/utils.js';
 import { getSpamKeywords, setSpamKeywords, checkSpam } from '../core/spam.js';
 import { getLang, t } from '../services/i18n.js';
@@ -204,48 +204,51 @@ export async function handleCheckBlockCommand(message) {
 // === 管理 ===
 export async function handleClearCommand(message) {
     const lang = await getAdminLang(message.from)
+    let targetId = null
     const thread_id = message.message_thread_id
-    if (!thread_id) return sendMessage({ chat_id: message.chat.id, text: t('admin_topic_only', lang), reply_to_message_id: message.message_id })
 
-    const user = await db.findUserByThreadId(thread_id)
-    if (!user) return sendMessage({ chat_id: message.chat.id, text: t('admin_user_not_found_topic', lang) })
+    if (message.reply_to_message) {
+        targetId = await db.getOldMessageMap(message.reply_to_message.message_id)
+        if (!targetId && message.reply_to_message.forward_from) {
+            targetId = message.reply_to_message.forward_from.id
+        }
+    }
 
-    const { formatDateKeyUTC } = await import('../utils/utils.js')
-    const startDay = formatDateKeyUTC()
+    if (!targetId && thread_id) {
+        const u = await db.findUserByThreadId(thread_id)
+        if (u) targetId = u.user_id
+    }
+
+    const args = message.text.split(/\s+/)
+    if (!targetId && args.length > 1) {
+        if (args[1].startsWith('@')) {
+            const username = args[1].slice(1)
+            targetId = await db.getUserIDByUsername(username)
+        } else {
+            targetId = args[1]
+        }
+    }
+
+    if (!targetId) {
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_clear_usage', lang), reply_to_message_id: message.message_id })
+    }
+
     try {
-        const delStmt = d1.prepare("DELETE FROM message_logs WHERE user_id = ? AND date_key = ?");
-        await delStmt.bind(user.user_id.toString(), startDay).run();
-        await sendMessage({ chat_id: message.chat.id, message_thread_id: thread_id, text: t('admin_log_cleared', lang) })
+        const result = await db.clearUserHistory(targetId)
+        await logAdminAction(message, 'clear_history', targetId, true, `logs=${result.deletedLogs},states=${result.deletedStates},maps=${result.deletedMaps}`)
+        return sendMessage({
+            chat_id: message.chat.id,
+            text: t('admin_clear_done', lang, {
+                UID: targetId,
+                LOGS: String(result.deletedLogs),
+                STATES: String(result.deletedStates),
+                MAPS: String(result.deletedMaps)
+            }),
+            reply_to_message_id: message.message_id
+        })
     } catch (e) {
-        await sendMessage({ chat_id: message.chat.id, text: t('admin_log_clear_error', lang, { MSG: e.message }) })
-    }
-}
-
-export async function handleCloseCommand(message) {
-    const lang = await getAdminLang(message.from)
-    if (!message.message_thread_id) {
-        return sendMessage({ chat_id: message.chat.id, text: t('admin_topic_only', lang), reply_to_message_id: message.message_id })
-    }
-    try {
-        await closeForumTopic(message.chat.id, message.message_thread_id)
-        await db.setTopicStatus(message.message_thread_id, 'closed')
-        await sendMessage({ chat_id: message.chat.id, message_thread_id: message.message_thread_id, text: t('admin_topic_closed', lang) })
-    } catch (e) {
-        return await sendMessage({ chat_id: message.chat.id, text: t('admin_error', lang, { MSG: e.message }) })
-    }
-}
-
-export async function handleReopenCommand(message) {
-    const lang = await getAdminLang(message.from)
-    if (!message.message_thread_id) {
-        return sendMessage({ chat_id: message.chat.id, text: t('admin_topic_only', lang), reply_to_message_id: message.message_id })
-    }
-    try {
-        await reopenForumTopic(message.chat.id, message.message_thread_id)
-        await db.setTopicStatus(message.message_thread_id, 'opened')
-        await sendMessage({ chat_id: message.chat.id, message_thread_id: message.message_thread_id, text: t('admin_topic_reopened', lang) })
-    } catch (e) {
-        return await sendMessage({ chat_id: message.chat.id, text: t('admin_error', lang, { MSG: e.message }) })
+        await logAdminAction(message, 'clear_history', targetId, false, e.message)
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_log_clear_error', lang, { MSG: e.message }) })
     }
 }
 

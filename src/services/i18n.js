@@ -113,6 +113,8 @@ const dict = {
     admin_check_block: { en: 'User {UID}:\nBlocked: {STATUS}', zh: '用户 {UID}：\n封禁状态：{STATUS}' },
     admin_log_cleared: { en: "✅ Today's log cleared.", zh: '✅ 今日日志已清除。' },
     admin_log_clear_error: { en: 'Error clearing logs: {MSG}', zh: '清除日志失败：{MSG}' },
+    admin_clear_usage: { en: 'Usage: /clear (reply | topic | <id> | @username)', zh: '用法：/clear（回复 | 话题 | <id> | @用户名）' },
+    admin_clear_done: { en: '✅ History cleared for {UID}\nLogs: {LOGS}\nStates: {STATES}\nMappings: {MAPS}', zh: '✅ 已清除 {UID} 的历史记录\n日志：{LOGS}\n状态：{STATES}\n映射：{MAPS}' },
     admin_maintenance_on: { en: '🛠 Maintenance mode ON', zh: '🛠 维护模式已开启' },
     admin_maintenance_off: { en: '✅ Maintenance mode OFF', zh: '✅ 维护模式已关闭' },
     admin_maintenance_usage: { en: 'Usage: /maintenance on | /maintenance off', zh: '用法：/maintenance on | /maintenance off' },
