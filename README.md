@@ -84,7 +84,7 @@ wrangler login
 ### 第二步：克隆项目并安装依赖
 
 ```bash
-git clone https://github.com/levi4212/TgContactBot.git
+git clone https://github.com/<your-account>/<your-repo>.git
 cd TgContactBot
 npm install
 ```
@@ -332,7 +332,7 @@ https://tgcontactbot.yourname.workers.dev/registerWebhook
 > ⚠️ 由于本项目含多个源代码文件，Cloudflare 网页编辑器不支持直接上传多文件项目。需本地打包后上传：
 
 ```bash
-git clone https://github.com/levi4212/TgContactBot.git
+git clone https://github.com/<your-account>/<your-repo>.git
 cd TgContactBot
 npm install
 npx wrangler deploy   # 使用 wrangler 部署（需登录 CF），或将打包产物手动上传
@@ -379,7 +379,7 @@ Set in CF Dashboard → Variables or in `wrangler.toml [vars]`:
 
 | 变量名 | 默认值 | 说明 |
 | --- | --- | --- |
-| `WELCOME_MESSAGE` | `Welcome to use LeviFREE bot!` | 用户 /start 时显示的欢迎语 |
+| `WELCOME_MESSAGE` | `Welcome! This is your contact bot.` | 用户 /start 时显示的欢迎语 |
 | `MAINTENANCE_MESSAGE` | `We are under maintenance...` | 维护模式提示语 |
 
 ### 验证 / Verification

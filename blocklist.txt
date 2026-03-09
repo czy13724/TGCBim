@@ -1,0 +1,12 @@
+# TgContactBot remote spam blocklist
+# One keyword/pattern per line.
+# Lines starting with "#" are comments.
+#
+# Regex format is supported:
+# /pattern/i
+
+兼职
+招聘
+提供设备
+代理
+探花

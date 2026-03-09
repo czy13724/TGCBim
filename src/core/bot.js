@@ -280,10 +280,10 @@ export async function handleWebhook(event) {
 export async function registerWebhook(requestUrl) {
     const webhookUrl = `${requestUrl.protocol}//${requestUrl.hostname}${config.BASE_PATH}${config.WEBHOOK}`
     try {
-        const r = await requestTelegram('setWebhook', {
+        const r = await requestTelegram('setWebhook', null, {
             url: webhookUrl,
             secret_token: config.SECRET,
-            allowed_updates: ['message', 'edited_message', 'callback_query'],
+            allowed_updates: JSON.stringify(['message', 'edited_message', 'callback_query']),
             drop_pending_updates: true
         })
         return new Response(JSON.stringify(r, null, 2), { headers: { 'content-type': 'application/json' } })

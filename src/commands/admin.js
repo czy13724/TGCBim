@@ -9,6 +9,9 @@ import { escapeHtml, delay, formatTime } from '../utils/utils.js';
 import { getSpamKeywords, setSpamKeywords, checkSpam } from '../core/spam.js';
 import { getLang, t } from '../services/i18n.js';
 
+const LISTSPAM_MAX_ITEMS_PER_PAGE = 80
+const LISTSPAM_MAX_BODY_LENGTH = 3200
+
 // === Broadcast ===
 // === 广播 ===
 export async function handleBroadcastCommand(message) {
@@ -359,8 +362,37 @@ export async function handleSpamCommand(message, command) {
     }
 
     if (command === '/listspam') {
-        let current = await getSpamKeywords()
-        return sendMessage({ chat_id: message.chat.id, text: (lang === 'zh' ? '垃圾关键词：\n' : 'Spam Keywords:\n') + (current || '').split(',').filter(Boolean).join('\n') })
+        const current = await getSpamKeywords()
+        const list = (current || '').split(',').map(k => k.trim()).filter(Boolean)
+
+        if (list.length === 0) {
+            return sendMessage({ chat_id: message.chat.id, text: lang === 'zh' ? '垃圾关键词为空。' : 'Spam keyword list is empty.' })
+        }
+
+        const totalPages = Math.max(1, Math.ceil(list.length / LISTSPAM_MAX_ITEMS_PER_PAGE))
+        let page = Number.parseInt(args[1] || '1', 10)
+        if (!Number.isFinite(page) || page < 1) page = 1
+        if (page > totalPages) page = totalPages
+
+        const from = (page - 1) * LISTSPAM_MAX_ITEMS_PER_PAGE
+        const hardTo = Math.min(list.length, from + LISTSPAM_MAX_ITEMS_PER_PAGE)
+
+        const lines = []
+        let bodyLength = 0
+        for (let i = from; i < hardTo; i++) {
+            let line = `${i + 1}. ${list[i]}`
+            if (line.length > 500) line = `${line.slice(0, 500)}...`
+            if (bodyLength + line.length + 1 > LISTSPAM_MAX_BODY_LENGTH && lines.length > 0) break
+            lines.push(line)
+            bodyLength += line.length + 1
+        }
+
+        const shownTo = from + lines.length
+        const header = lang === 'zh'
+            ? `垃圾关键词（第 ${page}/${totalPages} 页，显示 ${from + 1}-${shownTo} / 共 ${list.length} 条）\n用法：/listspam [页码]\n\n`
+            : `Spam Keywords (Page ${page}/${totalPages}, showing ${from + 1}-${shownTo} of ${list.length})\nUsage: /listspam [page]\n\n`
+
+        return sendMessage({ chat_id: message.chat.id, text: `${header}${lines.join('\n')}` })
     }
 
     if (command === '/checkspam') {
@@ -524,4 +556,3 @@ export async function handleLangCallback(callbackQuery) {
     await answerCallbackQuery(callbackQuery.id, { text: alertText })
     return true
 }
-

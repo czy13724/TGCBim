@@ -5,7 +5,7 @@ compatibility_date = "2024-02-28"
 [[d1_databases]]
 binding = "DB"
 database_name = "tgcontactbot"
-database_id = "" # 留空则由 Secret 注入 / Leave empty; value is injected via Secret at deploy time
+database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
 # ==============================================================
 # ⚠️  密钥 SECRETS — 不要写在这里！
@@ -28,7 +28,7 @@ database_id = "" # 留空则由 Secret 注入 / Leave empty; value is injected v
 ADMIN_UID = ""   # 留空则由 Secret 注入 / Leave empty; value is injected via Secret at deploy time
 
 # 【常改】欢迎语，新用户发 /start 时显示 / Welcome message shown to new users
-WELCOME_MESSAGE = "Welcome to use LeviFREE bot!"
+WELCOME_MESSAGE = "Welcome! This is your contact bot."
 
 # 【常改】维护模式提示语 / Message shown during maintenance mode
 MAINTENANCE_MESSAGE = "We are under maintenance. Please try again later."
@@ -50,7 +50,7 @@ MAINTENANCE_MESSAGE = "We are under maintenance. Please try again later."
 SPAM_KEYWORDS = "操逼赚钱,挖掘花,招聘花,提供设备,代理花,兼职,招探花"
 
 # 【常改】远程垃圾关键词黑名单 URL / Remote spam blocklist URL
-SPAM_BLOCKLIST_URL = "https://raw.githubusercontent.com/czy13724/czy13724/levi/blocklist.txt"
+SPAM_BLOCKLIST_URL = "https://raw.githubusercontent.com/levi4212/TgContactBot/master/blocklist.txt"
 
 # 【偶改】是否启用垃圾过滤 / Enable spam filter
 ENABLE_SPAM_FILTER = "true"
