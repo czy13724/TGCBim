@@ -460,7 +460,7 @@ https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands?commands=[{"command":"s
 **第二步：给管理员账号设置专属完整菜单**  
 将 `YOUR_BOT_TOKEN` 换成 Token，**并将 `ADMIN_UID` 换成你的管理员数字 ID**，复制到浏览器访问：
 ```text
-https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands?commands=[{"command":"start","description":"开始使用%20/%20Start"},{"command":"help","description":"命令帮助%20/%20Help"},{"command":"close","description":"关闭话题%20/%20Close"},{"command":"reopen","description":"开启话题%20/%20Reopen"},{"command":"clear","description":"清除今日日志%20/%20Clear"},{"command":"uid","description":"获取UID%20/%20Get%20ID"},{"command":"whitelist","description":"白名单管理%20/%20Whitelist"},{"command":"block","description":"封禁用户%20/%20Block"},{"command":"unblock","description":"解封用户%20/%20Unblock"},{"command":"stats","description":"统计信息%20/%20Stats"},{"command":"lang","description":"切换语言%20/%20Language"},{"command":"tpl","description":"快捷模板%20/%20Templates"},{"command":"broadcast","description":"发送广播%20/%20Broadcast"},{"command":"listadmins","description":"所有管理员%20/%20Admins"},{"command":"maintenance","description":"维护开关%20/%20Maintenance"},{"command":"spamstats","description":"拦截统计%20/%20Spam%20stats"},{"command":"listspam","description":"拦截词列表%20/%20Spam%20list"},{"command":"addspam","description":"加拦截词%20/%20Add%20spam"},{"command":"removespam","description":"删拦截词%20/%20Del%20spam"},{"command":"refreshspam","description":"刷新黑名单%20/%20Refresh"}]&scope={"type":"chat","chat_id":ADMIN_UID}
+https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands?commands=[{"command":"start","description":"开始使用%20/%20Start"},{"command":"help","description":"命令帮助%20/%20Help"},{"command":"clear","description":"清理用户历史%20/%20Clear%20history"},{"command":"uid","description":"获取UID%20/%20Get%20ID"},{"command":"userinfo","description":"用户详情%20/%20User%20info"},{"command":"whitelist","description":"白名单管理%20/%20Whitelist"},{"command":"block","description":"封禁用户%20/%20Block"},{"command":"unblock","description":"解封用户%20/%20Unblock"},{"command":"stats","description":"统计信息%20/%20Stats"},{"command":"lang","description":"切换语言%20/%20Language"},{"command":"tpl","description":"快捷模板%20/%20Templates"},{"command":"broadcast","description":"发送广播%20/%20Broadcast"},{"command":"listadmins","description":"所有管理员%20/%20Admins"},{"command":"addadmin","description":"添加管理员%20/%20Add%20admin"},{"command":"removeadmin","description":"移除管理员%20/%20Remove%20admin"},{"command":"maintenance","description":"维护开关%20/%20Maintenance"},{"command":"audit","description":"操作审计%20/%20Audit"},{"command":"spamstats","description":"拦截统计%20/%20Spam%20stats"},{"command":"listspam","description":"拦截词列表%20/%20Spam%20list"},{"command":"spamhealth","description":"词库健康检查%20/%20Spam%20health"},{"command":"addspam","description":"加拦截词%20/%20Add%20spam"},{"command":"removespam","description":"删拦截词%20/%20Del%20spam"},{"command":"refreshspam","description":"刷新黑名单%20/%20Refresh"}]&scope={"type":"chat","chat_id":ADMIN_UID}
 ```
 
 > **浏览器返回以下结果即表示设置成功：**
@@ -483,7 +483,7 @@ curl -X POST "https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands" \
 ```bash
 curl -X POST "https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands" \
 -H "Content-Type: application/json" \
--d '{"commands": [{"command":"start","description":"开始使用 / Start"}, {"command":"help","description":"命令帮助 / Help"}, {"command":"close","description":"关闭话题 / Close"}, {"command":"reopen","description":"开启话题 / Reopen"}, {"command":"clear","description":"清除今日日志 / Clear"}, {"command":"uid","description":"获取UID / Get ID"}, {"command":"whitelist","description":"白名单管理 / Whitelist"}, {"command":"block","description":"封禁用户 / Block"}, {"command":"unblock","description":"解封用户 / Unblock"}, {"command":"stats","description":"统计信息 / Stats"}, {"command":"lang","description":"切换语言 / Language"}, {"command":"tpl","description":"快捷模板 / Templates"}, {"command":"broadcast","description":"发送广播 / Broadcast"}, {"command":"listadmins","description":"所有管理员 / Admins"}, {"command":"maintenance","description":"维护开关 / Maintenance"}, {"command":"spamstats","description":"拦截统计 / Spam stats"}, {"command":"listspam","description":"拦截词列表 / Spam list"}, {"command":"addspam","description":"加拦截词 / Add spam"}, {"command":"removespam","description":"删拦截词 / Del spam"}, {"command":"refreshspam","description":"刷新黑名单 / Refresh"}], "scope": {"type": "chat", "chat_id": YOUR_ADMIN_UID}}'
+-d '{"commands": [{"command":"start","description":"开始使用 / Start"}, {"command":"help","description":"命令帮助 / Help"}, {"command":"clear","description":"清理用户历史 / Clear history"}, {"command":"uid","description":"获取UID / Get ID"}, {"command":"userinfo","description":"用户详情 / User info"}, {"command":"whitelist","description":"白名单管理 / Whitelist"}, {"command":"block","description":"封禁用户 / Block"}, {"command":"unblock","description":"解封用户 / Unblock"}, {"command":"stats","description":"统计信息 / Stats"}, {"command":"lang","description":"切换语言 / Language"}, {"command":"tpl","description":"快捷模板 / Templates"}, {"command":"broadcast","description":"发送广播 / Broadcast"}, {"command":"listadmins","description":"所有管理员 / Admins"}, {"command":"addadmin","description":"添加管理员 / Add admin"}, {"command":"removeadmin","description":"移除管理员 / Remove admin"}, {"command":"maintenance","description":"维护开关 / Maintenance"}, {"command":"audit","description":"操作审计 / Audit"}, {"command":"spamstats","description":"拦截统计 / Spam stats"}, {"command":"listspam","description":"拦截词列表 / Spam list"}, {"command":"spamhealth","description":"词库健康检查 / Spam health"}, {"command":"addspam","description":"加拦截词 / Add spam"}, {"command":"removespam","description":"删拦截词 / Del spam"}, {"command":"refreshspam","description":"刷新黑名单 / Refresh"}], "scope": {"type": "chat", "chat_id": YOUR_ADMIN_UID}}'
 ```
 
 ### 方式三：通过 @BotFather 对话设置 (目前不支持精细化权限)
@@ -494,10 +494,9 @@ curl -X POST "https://api.telegram.org/botYOUR_BOT_TOKEN/setMyCommands" \
 ```text
 start - 开始使用 / Start
 help - 命令帮助 / Help
-close - 关闭当前话题 / Close topic
-reopen - 重新开启话题 / Reopen topic
-clear - 清除今日日志（话题内）/ Clear logs
+clear - 清理用户历史 / Clear history
 uid - 获取用户 Telegram ID / Get User ID
+userinfo - 查看用户详情 / User info
 whitelist - 白名单管理 / Whitelist management
 block - 永久封禁用户 / Block a user
 unblock - 解封用户 / Unblock a user
@@ -506,9 +505,13 @@ lang - 切换界面语言 / Switch language
 tpl - 快捷回复模板 / Quick reply templates
 broadcast - 向所有用户广播消息 / Broadcast
 listadmins - 查看所有管理员 / List admins
+addadmin - 添加动态管理员 / Add admin
+removeadmin - 移除动态管理员 / Remove admin
 maintenance - 维护模式开关 / Maintenance mode
+audit - 管理员审计日志 / Admin audit
 spamstats - 垃圾拦截统计 / Spam stats
-listspam - 查看垃圾关键词数量 / List spam keywords
+listspam - 查看垃圾关键词列表 / List spam keywords
+spamhealth - 远程词库健康检查 / Spam health
 addspam - 添加垃圾关键词 / Add spam keyword
 removespam - 删除垃圾关键词 / Remove spam keyword
 refreshspam - 从远程刷新黑名单 / Refresh blocklist
@@ -529,13 +532,11 @@ refreshspam - 从远程刷新黑名单 / Refresh blocklist
 > 仅 `ADMIN_UID`、`ADMINS` 中配置的 UID，或管理群组的群管理员可使用。  
 > Only the owner (`ADMIN_UID`), additional admins (`ADMINS`), or group admins can use these.
 
-**🗂️ 话题管理 / Topic Management**（最常用）
+**🗂️ 会话清理 / History Cleanup**（最常用）
 
 | 命令 | 说明 |
 | --- | --- |
-| `/close` | 关闭当前话题 |
-| `/reopen` | 重新开启话题 |
-| `/clear` | 清除今日日志（话题内） |
+| `/clear` | 清理目标用户历史记录（回复/话题/UID） |
 
 **🔒 用户管理 / User Management**（常用）
 
@@ -570,6 +571,8 @@ refreshspam - 从远程刷新黑名单 / Refresh blocklist
 | `/userinfo` 或回复 | 查看用户详情信息 |
 | `/stats` | Bot 统计信息（用户数、消息数、拦截数） |
 | `/listadmins` | 查看所有管理员 |
+| `/addadmin <uid>` | 添加动态管理员（仅 owner） |
+| `/removeadmin <uid>` | 移除动态管理员（仅 owner） |
 
 **🔧 系统管理 / System**（低频使用）
 
@@ -578,8 +581,11 @@ refreshspam - 从远程刷新黑名单 / Refresh blocklist
 | `/lang` | 切换管理员界面语言（中文/English）|
 | `/maintenance on` | 开启维护模式（用户收到维护提示） |
 | `/maintenance off` | 关闭维护模式 |
+| `/audit [page]` | 查看管理员审计日志（分页） |
+| `/audit <all|ban|whitelist|clear|broadcast> [page]` | 按动作筛选审计日志 |
 | `/spamstats` | 垃圾拦截统计 |
-| `/listspam` | 查看垃圾关键词数量 |
+| `/listspam` | 查看垃圾关键词列表（按钮分页、来源标记） |
+| `/spamhealth` | 远程词库健康检查（本地/远程/合并统计） |
 | `/addspam <关键词>` | 添加垃圾关键词 |
 | `/removespam <关键词>`| 删除垃圾关键词 |
 | `/refreshspam` | 立即从配置的远程 URL 刷新黑名单 |
