@@ -24,6 +24,11 @@ async function logAdminAction(message, action, targetId = null, success = true, 
     })
 }
 
+async function getAdminLang(user) {
+    const dbUser = await db.getUser(user.id).catch(() => null)
+    return getLang(dbUser || user)
+}
+
 async function denyIfSafeMode(message, lang, action) {
     if (config.SAFE_MODE && !isOwner(message.from.id)) {
         await logAdminAction(message, action, null, false, 'blocked_by_safe_mode')
@@ -37,7 +42,7 @@ async function denyIfSafeMode(message, lang, action) {
 // === 广播 ===
 export async function handleBroadcastCommand(message) {
     if (!isGlobalAdminOrOwner(message.from.id)) return 'Unauthorized'
-    const lang = getLang(message.from)
+    const lang = await getAdminLang(message.from)
     if (await denyIfSafeMode(message, lang, 'broadcast')) return
 
     const args = message.text.split(' ').slice(1)
@@ -141,7 +146,7 @@ async function handleBlockUnblock(message, isBlock) {
         targetId = args[1]
     }
 
-    const lang = getLang(message.from)
+    const lang = await getAdminLang(message.from)
     const actionName = isBlock ? 'block' : 'unblock'
     if (await denyIfSafeMode(message, lang, actionName)) return
 
@@ -169,7 +174,7 @@ async function handleBlockUnblock(message, isBlock) {
 
 export async function handleCheckBlockCommand(message) {
     const thread_id = message.message_thread_id
-    const lang = getLang(message.from)
+    const lang = await getAdminLang(message.from)
     let targetId = null
     if (message.reply_to_message) {
         targetId = await db.getOldMessageMap(message.reply_to_message.message_id)
@@ -198,7 +203,7 @@ export async function handleCheckBlockCommand(message) {
 // === Management ===
 // === 管理 ===
 export async function handleClearCommand(message) {
-    const lang = getLang(message.from)
+    const lang = await getAdminLang(message.from)
     const thread_id = message.message_thread_id
     if (!thread_id) return sendMessage({ chat_id: message.chat.id, text: t('admin_topic_only', lang), reply_to_message_id: message.message_id })
 
@@ -217,7 +222,7 @@ export async function handleClearCommand(message) {
 }
 
 export async function handleCloseCommand(message) {
-    const lang = getLang(message.from)
+    const lang = await getAdminLang(message.from)
     if (!message.message_thread_id) {
         return sendMessage({ chat_id: message.chat.id, text: t('admin_topic_only', lang), reply_to_message_id: message.message_id })
     }
@@ -231,7 +236,7 @@ export async function handleCloseCommand(message) {
 }
 
 export async function handleReopenCommand(message) {
-    const lang = getLang(message.from)
+    const lang = await getAdminLang(message.from)
     if (!message.message_thread_id) {
         return sendMessage({ chat_id: message.chat.id, text: t('admin_topic_only', lang), reply_to_message_id: message.message_id })
     }
@@ -246,7 +251,7 @@ export async function handleReopenCommand(message) {
 
 export async function handleMaintenanceToggle(enable, message) {
     if (!isGlobalAdminOrOwner(message.from.id)) return
-    const lang = getLang(message.from)
+    const lang = await getAdminLang(message.from)
     if (await denyIfSafeMode(message, lang, 'maintenance_toggle')) return
 
     if (enable) {
@@ -263,7 +268,7 @@ export async function handleMaintenanceToggle(enable, message) {
 }
 
 export async function handleTemplateCommand(message) {
-    const lang = getLang(message.from)
+    const lang = await getAdminLang(message.from)
     const args = message.text.split(' ')
     const sub = args[1]
 
@@ -296,7 +301,7 @@ export async function handleTemplateCommand(message) {
 }
 
 export async function handleUserInfoCommand(message) {
-    const lang = getLang(message.from)
+    const lang = await getAdminLang(message.from)
     const thread_id = message.message_thread_id
     let targetUser = null
 
@@ -332,7 +337,7 @@ export async function handleUserInfoCommand(message) {
 
 export async function handleUidCommand(message) {
     const thread_id = message.message_thread_id
-    const lang = getLang(message.from)
+    const lang = await getAdminLang(message.from)
     let targetId = null
 
     if (message.reply_to_message) {
@@ -369,7 +374,7 @@ export async function handleUidCommand(message) {
 
 export async function handleSpamCommand(message, command) {
     const args = message.text.split(/\s+/)
-    const lang = getLang(message.from)
+    const lang = await getAdminLang(message.from)
     const mutating = ['/addspam', '/removespam', '/refreshspam'].includes(command)
     if (mutating && await denyIfSafeMode(message, lang, `spam_${command.slice(1)}`)) return
 
@@ -466,7 +471,7 @@ export async function handleSpamCommand(message, command) {
 
 export async function handleAuditCommand(message) {
     if (!isGlobalAdminOrOwner(message.from.id)) return
-    const lang = getLang(message.from)
+    const lang = await getAdminLang(message.from)
     const args = message.text.split(/\s+/)
     const requested = Number.parseInt(args[1] || '20', 10)
     const limit = Number.isFinite(requested) ? Math.min(Math.max(requested, 1), 50) : 20
@@ -493,7 +498,7 @@ export async function handleAuditCommand(message) {
 }
 
 export async function handleWhitelistCommand(message) {
-    const lang = getLang(message.from)
+    const lang = await getAdminLang(message.from)
     if (!isGlobalAdminOrOwner(message.from.id)) return sendMessage({ chat_id: message.chat.id, text: t('admin_unauthorized', lang) })
 
     const args = message.text.split(/\s+/)
@@ -583,7 +588,7 @@ function langKeyboard(currentLang) {
 }
 
 export async function handleLangCommand(message) {
-    const currentLang = getLang(message.from)
+    const currentLang = await getAdminLang(message.from)
     const text = currentLang === 'zh'
         ? '🌐 <b>界面语言设置</b>\n\n当前：🇨🇳 中文\n\n点击按钮切换语言：'
         : '🌐 <b>Interface Language</b>\n\nCurrent: 🇺🇸 English\n\nTap a button to switch:'
