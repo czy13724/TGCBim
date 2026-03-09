@@ -24,17 +24,21 @@ function normalizeStrikeState(state) {
  * 获取垃圾邮件关键词（带缓存）
  */
 export async function getSpamKeywords() {
+    let localKeywords = ''
     try {
         const stmt = d1.prepare("SELECT value FROM system_cache WHERE key = 'spam_keywords'");
         const stored = await stmt.first();
-        if (stored) return stored.value;
+        if (stored?.value) localKeywords = stored.value;
     } catch (e) {
         console.error('Error getting spam keywords from D1:', e)
     }
 
     // Check cached blocklist first (1 month TTL)
     // 首先检查缓存的阻止列表（1 个月 TTL）
-    let allKeywords = config.SPAM_KEYWORDS
+    // Base keywords priority:
+    // 1) local managed keywords in D1 (if any)
+    // 2) env default keywords
+    let allKeywords = localKeywords || config.SPAM_KEYWORDS
 
     try {
         const stmt = d1.prepare("SELECT value FROM system_cache WHERE key = 'spam_blocklist_cache'");
@@ -45,7 +49,10 @@ export async function getSpamKeywords() {
                 // Cache is fresh (< 1 month)
                 // 缓存是新鲜的（< 1 个月）
                 console.log('Using cached blocklist')
-                return cached.keywords
+                const existingKeywords = allKeywords ? allKeywords.split(',').map(k => k.trim()).filter(Boolean) : []
+                const cachedKeywords = (cached.keywords || '').split(',').map(k => k.trim()).filter(Boolean)
+                const mergedSet = new Set([...existingKeywords, ...cachedKeywords])
+                return Array.from(mergedSet).join(',')
             }
         }
     } catch (e) {
