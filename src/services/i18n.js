@@ -149,6 +149,11 @@ const dict = {
     admin_spam_refreshing: { en: '🔄 Refreshing remote blocklist...', zh: '🔄 正在刷新远程关键词列表...' },
     admin_spam_refreshed: { en: '✅ Blocklist refreshed! Total keywords: {COUNT}', zh: '✅ 关键词列表已刷新！当前共有 {COUNT} 个关键词' },
     admin_spam_refresh_fail: { en: '❌ Refresh failed: {MSG}', zh: '❌ 刷新失败：{MSG}' },
+    admin_spam_health_text: { en: '🩺 Spam Health\nLocal: {LOCAL}\nRemote: {REMOTE}\nMerged: {TOTAL}\nRemote status: {STATUS}\nLast refresh (UTC): {LAST}', zh: '🩺 垃圾词库健康状态\n本地词数：{LOCAL}\n远程词数：{REMOTE}\n合并后总数：{TOTAL}\n远程状态：{STATUS}\n最近刷新（UTC）：{LAST}' },
+    admin_spam_health_remote_off: { en: 'Not configured', zh: '未配置' },
+    admin_spam_health_remote_unknown: { en: 'Unknown', zh: '未知' },
+    admin_spam_health_remote_ok: { en: 'Reachable ({CODE})', zh: '可访问（{CODE}）' },
+    admin_spam_health_remote_fail: { en: 'Unreachable ({CODE})', zh: '不可访问（{CODE}）' },
     admin_safe_mode_blocked: { en: '🛡 SAFE_MODE is enabled. This command is owner-only.', zh: '🛡 已开启 SAFE_MODE。该命令仅限所有者执行。' },
     admin_audit_empty: { en: 'No admin audit logs yet.', zh: '暂无管理员审计日志。' },
     admin_maintenance_choose: { en: 'Choose maintenance mode action:', zh: '请选择维护模式操作：' },
@@ -159,7 +164,7 @@ const dict = {
     admin_maintenance_status_off: { en: 'OFF', zh: '关闭' },
     admin_maintenance_already_on: { en: 'Maintenance is already ON.', zh: '维护模式已经是开启状态。' },
     admin_maintenance_already_off: { en: 'Maintenance is already OFF.', zh: '维护模式已经是关闭状态。' },
-    admin_audit_page_usage: { en: 'Usage: /audit [page], 10 records per page.', zh: '用法：/audit [页码]，每页 10 条。' },
+    admin_audit_page_usage: { en: 'Usage: /audit [page] or /audit <all|ban|whitelist|clear|broadcast> [page], 10 records per page.', zh: '用法：/audit [页码] 或 /audit <all|ban|whitelist|clear|broadcast> [页码]，每页 10 条。' },
     admin_broadcast_preview_title: { en: 'Broadcast Preview', zh: '广播预览' },
     admin_broadcast_preview_info: { en: 'Recipients: {COUNT}\nMode: {MODE}\n\nConfirm to send?', zh: '接收人数：{COUNT}\n模式：{MODE}\n\n确认发送？' },
     admin_broadcast_mode_text: { en: 'Text', zh: '文本' },
@@ -169,6 +174,9 @@ const dict = {
     admin_broadcast_cancelled: { en: 'Broadcast cancelled.', zh: '广播已取消。' },
     admin_broadcast_nothing: { en: 'No pending broadcast.', zh: '没有待发送广播。' },
     admin_broadcast_confirmed: { en: 'Broadcast confirmed, sending...', zh: '广播已确认，开始发送...' },
+    admin_action_done: { en: 'Done', zh: '已完成' },
+    admin_action_failed: { en: 'Failed', zh: '失败' },
+    admin_unsupported_action: { en: 'Unsupported action', zh: '不支持的操作' },
 
 };
 

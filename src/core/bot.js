@@ -117,7 +117,7 @@ export async function onUpdate(update, extra = {}) {
 
                     // Spam configuration commands (Admin Group or Global)
                     // 垃圾邮件配置命令（管理群组或全局）
-                    if (['/addspam', '/removespam', '/listspam', '/checkspam', '/spamstats', '/refreshspam'].includes(command)) {
+                    if (['/addspam', '/removespam', '/listspam', '/checkspam', '/spamstats', '/refreshspam', '/spamhealth'].includes(command)) {
                         return await handleSpamCommand(message, command)
                     }
                 }
@@ -274,7 +274,7 @@ export async function onUpdate(update, extra = {}) {
                         });
                     } else {
                         await answerCallbackQuery(callbackQuery.id, {
-                            text: 'Unsupported action',
+                            text: t('admin_unsupported_action', adminLang),
                             show_alert: false
                         });
                     }

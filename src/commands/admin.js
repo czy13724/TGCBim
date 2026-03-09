@@ -6,7 +6,7 @@ import { config, getRuntimeAdmins, isGlobalAdminOrOwner, isOwner, setRuntimeAdmi
 import { db, d1, tplGet, tplSet, tplDel, tplList } from '../services/db.js';
 import { sendMessage, copyMessage, editMessage, answerCallbackQuery } from '../services/telegram.js';
 import { escapeHtml, delay, formatTime, normalizeId, parseAdmins } from '../utils/utils.js';
-import { getSpamKeywords, setSpamKeywords, checkSpam } from '../core/spam.js';
+import { checkSpam, getSpamKeywordSnapshot, getSpamKeywords, setSpamKeywords } from '../core/spam.js';
 import { getLang, t } from '../services/i18n.js';
 
 const LISTSPAM_MAX_BODY_LENGTH = 3200
@@ -14,6 +14,7 @@ const LISTSPAM_BUTTON_PAGE_SIZE = 10
 const SYSTEM_CONFIG_KEY = 'system_config'
 const DYNAMIC_ADMINS_KEY = 'dynamic_admins'
 const PENDING_BROADCAST_KEY = 'pending_broadcast'
+const AUDIT_FILTERS = ['all', 'ban', 'whitelist', 'clear', 'broadcast']
 
 function userActionKeyboard(uid, lang, isBlocked, isWhitelisted) {
     const banText = isBlocked ? (lang === 'zh' ? '✅ 解封' : '✅ Unblock') : (lang === 'zh' ? '🚫 封禁' : '🚫 Block')
@@ -666,7 +667,7 @@ export async function handleUserActionCallback(callbackQuery) {
             await db.addAdminAuditLog({ admin_id: callbackQuery.from.id, action: 'callback_clear', target_id: uid, chat_id: callbackQuery.message?.chat?.id, thread_id: callbackQuery.message?.message_thread_id, success: true, detail: `logs=${result.deletedLogs},states=${result.deletedStates},maps=${result.deletedMaps}` })
             await answerCallbackQuery(callbackQuery.id, { text: t('admin_clear_done', lang, { UID: uid, LOGS: String(result.deletedLogs), STATES: String(result.deletedStates), MAPS: String(result.deletedMaps) }), show_alert: true })
         } else {
-            await answerCallbackQuery(callbackQuery.id, { text: 'Unsupported action', show_alert: false })
+            await answerCallbackQuery(callbackQuery.id, { text: t('admin_unsupported_action', lang), show_alert: false })
         }
 
         const user = await db.getUser(uid)
@@ -800,6 +801,31 @@ export async function handleSpamCommand(message, command) {
             return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_refresh_fail', lang, { MSG: e.message }) })
         }
     }
+
+    if (command === '/spamhealth') {
+        const snapshot = await getSpamKeywordSnapshot({ forceRefreshRemote: true })
+        const remoteStatus = !snapshot.remoteConfigured
+            ? t('admin_spam_health_remote_off', lang)
+            : snapshot.remoteReachable === null
+                ? t('admin_spam_health_remote_unknown', lang)
+                : snapshot.remoteReachable
+                    ? t('admin_spam_health_remote_ok', lang, { CODE: String(snapshot.remoteStatus || 200) })
+                    : t('admin_spam_health_remote_fail', lang, { CODE: String(snapshot.remoteStatus || 0) })
+        const lastRefresh = snapshot.cacheTimestamp
+            ? formatTime(snapshot.cacheTimestamp)
+            : (lang === 'zh' ? '无' : 'N/A')
+        const text = t('admin_spam_health_text', lang, {
+            LOCAL: String(snapshot.localCount),
+            REMOTE: String(snapshot.remoteCount),
+            TOTAL: String(snapshot.totalCount),
+            STATUS: remoteStatus,
+            LAST: lastRefresh
+        })
+        return sendMessage({
+            chat_id: message.chat.id,
+            text
+        })
+    }
 }
 
 function listSpamKeyboard(page, totalPages) {
@@ -811,8 +837,8 @@ function listSpamKeyboard(page, totalPages) {
 }
 
 async function renderListSpamPage({ lang, page, chat_id, reply_to_message_id = null, message_id = null }) {
-    const current = await getSpamKeywords()
-    const list = (current || '').split(',').map(k => k.trim()).filter(Boolean)
+    const snapshot = await getSpamKeywordSnapshot()
+    const list = snapshot.entries || []
     if (!list.length) {
         return sendMessage({ chat_id, text: lang === 'zh' ? '垃圾关键词为空。' : 'Spam keyword list is empty.', reply_to_message_id })
     }
@@ -825,7 +851,12 @@ async function renderListSpamPage({ lang, page, chat_id, reply_to_message_id = n
     const lines = []
     let bodyLength = 0
     for (let i = from; i < hardTo; i++) {
-        let line = `${i + 1}. ${list[i]}`
+        const source = list[i].source === 'both'
+            ? (lang === 'zh' ? '本地+远程' : 'local+remote')
+            : list[i].source === 'remote'
+                ? (lang === 'zh' ? '远程' : 'remote')
+                : (lang === 'zh' ? '本地' : 'local')
+        let line = `${i + 1}. ${list[i].keyword} [${source}]`
         if (line.length > 500) line = `${line.slice(0, 500)}...`
         if (bodyLength + line.length + 1 > LISTSPAM_MAX_BODY_LENGTH && lines.length > 0) break
         lines.push(line)
@@ -866,9 +897,9 @@ export async function handleListSpamCallback(callbackQuery) {
             chat_id: callbackQuery.message.chat.id,
             message_id: callbackQuery.message.message_id
         })
-        await answerCallbackQuery(callbackQuery.id, { text: 'OK' })
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_action_done', lang) })
     } catch {
-        await answerCallbackQuery(callbackQuery.id, { text: 'Failed', show_alert: false }).catch(() => { })
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_action_failed', lang), show_alert: false }).catch(() => { })
     }
     return true
 }
@@ -877,39 +908,57 @@ export async function handleAuditCommand(message) {
     if (!isGlobalAdminOrOwner(message.from.id)) return
     const lang = await getAdminLang(message.from)
     const args = message.text.split(/\s+/)
-    const requested = Number.parseInt(args[1] || '1', 10)
-    const page = Number.isFinite(requested) ? Math.max(requested, 1) : 1
+    const arg1 = (args[1] || '').toLowerCase()
+    const arg2 = (args[2] || '').toLowerCase()
+    let filter = 'all'
+    let page = 1
+
+    if (arg1 && AUDIT_FILTERS.includes(arg1)) {
+        filter = arg1
+        const maybePage = Number.parseInt(arg2 || '1', 10)
+        page = Number.isFinite(maybePage) ? Math.max(maybePage, 1) : 1
+    } else {
+        const maybePage = Number.parseInt(arg1 || '1', 10)
+        page = Number.isFinite(maybePage) ? Math.max(maybePage, 1) : 1
+    }
+
     return renderAuditPage({
         lang,
+        filter,
         page,
         chat_id: message.chat.id,
         reply_to_message_id: message.message_id
     })
 }
 
-function auditKeyboard(page, totalPages) {
+function auditKeyboard(page, totalPages, filter, lang) {
     const row = []
-    if (page > 1) row.push({ text: '⬅️ Prev', callback_data: `admin:audit:${page - 1}` })
-    row.push({ text: `${page}/${totalPages}`, callback_data: 'admin:audit:noop' })
-    if (page < totalPages) row.push({ text: 'Next ➡️', callback_data: `admin:audit:${page + 1}` })
-    return { inline_keyboard: [row] }
+    if (page > 1) row.push({ text: '⬅️ Prev', callback_data: `admin:audit:${page - 1}:${filter}` })
+    row.push({ text: `${page}/${totalPages}`, callback_data: `admin:audit:noop:${filter}` })
+    if (page < totalPages) row.push({ text: 'Next ➡️', callback_data: `admin:audit:${page + 1}:${filter}` })
+
+    const filters = AUDIT_FILTERS.map(item => ({
+        text: item === filter ? `• ${item}` : item,
+        callback_data: `admin:audit:1:${item}`
+    }))
+    return { inline_keyboard: [row, filters] }
 }
 
-async function renderAuditPage({ lang, page, chat_id, reply_to_message_id = null, message_id = null }) {
+async function renderAuditPage({ lang, filter, page, chat_id, reply_to_message_id = null, message_id = null }) {
     const pageSize = 10
-    const total = await db.getAdminAuditLogCount()
+    const total = await db.getAdminAuditLogCount(filter)
     const totalPages = Math.max(1, Math.ceil(total / pageSize))
     const normalizedPage = Math.min(Math.max(page, 1), totalPages)
     const offset = (normalizedPage - 1) * pageSize
-    const rows = await db.getAdminAuditLogs(pageSize, offset)
+    const rows = await db.getAdminAuditLogs(pageSize, offset, filter)
 
     if (!rows.length) {
         return sendMessage({ chat_id, text: t('admin_audit_empty', lang), reply_to_message_id })
     }
 
     const title = lang === 'zh'
-        ? `🧾 最近管理员操作（第 ${normalizedPage}/${totalPages} 页）\n${t('admin_audit_page_usage', lang)}\n`
-        : `🧾 Recent Admin Actions (Page ${normalizedPage}/${totalPages})\n${t('admin_audit_page_usage', lang)}\n`
+        ? `🧾 最近管理员操作（第 ${normalizedPage}/${totalPages} 页）\n筛选：${filter}\n${t('admin_audit_page_usage', lang)}\n`
+        : `🧾 Recent Admin Actions (Page ${normalizedPage}/${totalPages})\nFilter: ${filter}\n${t('admin_audit_page_usage', lang)}\n`
     const lines = rows.map(row => {
         const time = new Date(row.created_at).toISOString().slice(11, 19)
         const ok = row.success ? 'OK' : 'FAIL'
@@ -922,7 +971,7 @@ async function renderAuditPage({ lang, page, chat_id, reply_to_message_id = null
     const payload = {
         chat_id,
         text: `${title}${lines.join('\n')}`.slice(0, 3900),
-        reply_markup: auditKeyboard(normalizedPage, totalPages)
+        reply_markup: auditKeyboard(normalizedPage, totalPages, filter, lang)
     }
     if (message_id) {
         payload.message_id = message_id
@@ -937,22 +986,28 @@ export async function handleAuditCallback(callbackQuery) {
     if (!data.startsWith('admin:audit:')) return false
     const lang = await getAdminLang(callbackQuery.from)
 
-    if (data === 'admin:audit:noop') {
+    const parts = data.split(':')
+    const pageRaw = parts[2] || '1'
+    const filterRaw = (parts[3] || 'all').toLowerCase()
+    const filter = AUDIT_FILTERS.includes(filterRaw) ? filterRaw : 'all'
+
+    if (pageRaw === 'noop') {
         await answerCallbackQuery(callbackQuery.id, { text: ' ' })
         return true
     }
 
     try {
-        const page = Number.parseInt(data.split(':')[2] || '1', 10)
+        const page = Number.parseInt(pageRaw || '1', 10)
         await renderAuditPage({
             lang,
+            filter,
             page: Number.isFinite(page) ? page : 1,
             chat_id: callbackQuery.message.chat.id,
             message_id: callbackQuery.message.message_id
         })
-        await answerCallbackQuery(callbackQuery.id, { text: 'OK' })
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_action_done', lang) })
     } catch {
-        await answerCallbackQuery(callbackQuery.id, { text: 'Failed', show_alert: false }).catch(() => { })
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_action_failed', lang), show_alert: false }).catch(() => { })
     }
     return true
 }

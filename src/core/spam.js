@@ -8,6 +8,41 @@ import { sendMessage, deleteMessage, banChatMember, kickChatMember } from '../se
 import { getLang, t } from '../services/i18n.js';
 import { escapeHtml } from '../utils/utils.js';
 
+function splitCsvKeywords(csv = '') {
+    return (csv || '')
+        .split(',')
+        .map(k => k.trim())
+        .filter(Boolean)
+}
+
+function splitRemoteKeywords(text = '') {
+    return (text || '')
+        .split('\n')
+        .map(line => line.split('#')[0].trim())
+        .filter(Boolean)
+}
+
+function uniqueKeywords(items = []) {
+    return Array.from(new Set(items.map(v => (v || '').trim()).filter(Boolean)))
+}
+
+function mergeKeywordCsv(baseCsv = '', extraCsv = '') {
+    const merged = uniqueKeywords([...splitCsvKeywords(baseCsv), ...splitCsvKeywords(extraCsv)])
+    return merged.join(',')
+}
+
+function keywordSourceEntries(localCsv = '', remoteCsv = '') {
+    const localSet = new Set(splitCsvKeywords(localCsv))
+    const remoteSet = new Set(splitCsvKeywords(remoteCsv))
+    const merged = uniqueKeywords([...localSet, ...remoteSet])
+    return merged.map(keyword => ({
+        keyword,
+        source: localSet.has(keyword) && remoteSet.has(keyword)
+            ? 'both'
+            : localSet.has(keyword) ? 'local' : 'remote'
+    }))
+}
+
 function normalizeStrikeState(state) {
     if (!state || typeof state !== 'object') {
         return { count: 0, first_at: 0, last_at: 0 };
@@ -24,6 +59,12 @@ function normalizeStrikeState(state) {
  * 获取垃圾邮件关键词（带缓存）
  */
 export async function getSpamKeywords() {
+    const snapshot = await getSpamKeywordSnapshot()
+    return snapshot.mergedKeywords
+}
+
+export async function getSpamKeywordSnapshot(options = {}) {
+    const forceRefreshRemote = options.forceRefreshRemote === true
     let localKeywords = ''
     try {
         const stmt = d1.prepare("SELECT value FROM system_cache WHERE key = 'spam_keywords'");
@@ -33,26 +74,40 @@ export async function getSpamKeywords() {
         console.error('Error getting spam keywords from D1:', e)
     }
 
-    // Check cached blocklist first (1 month TTL)
-    // 首先检查缓存的阻止列表（1 个月 TTL）
-    // Base keywords priority:
-    // 1) local managed keywords in D1 (if any)
-    // 2) env default keywords
-    let allKeywords = localKeywords || config.SPAM_KEYWORDS
+    const localBaseKeywords = localKeywords || config.SPAM_KEYWORDS
+    let allKeywords = localBaseKeywords
+    let remoteKeywords = ''
+    let remoteReachable = null
+    let remoteStatus = null
+    let cacheTimestamp = 0
 
     try {
         const stmt = d1.prepare("SELECT value FROM system_cache WHERE key = 'spam_blocklist_cache'");
         const cacheRow = await stmt.first();
         if (cacheRow) {
             const cached = JSON.parse(cacheRow.value);
-            if (cached && cached.timestamp && (Date.now() - cached.timestamp < 2592000000)) {
+            cacheTimestamp = Number(cached?.timestamp || 0)
+            if (cached?.remote_keywords) {
+                remoteKeywords = cached.remote_keywords
+            } else if (cached?.keywords) {
+                remoteKeywords = cached.keywords
+            }
+            if (!forceRefreshRemote && cached && cached.timestamp && (Date.now() - cached.timestamp < 2592000000)) {
                 // Cache is fresh (< 1 month)
                 // 缓存是新鲜的（< 1 个月）
                 console.log('Using cached blocklist')
-                const existingKeywords = allKeywords ? allKeywords.split(',').map(k => k.trim()).filter(Boolean) : []
-                const cachedKeywords = (cached.keywords || '').split(',').map(k => k.trim()).filter(Boolean)
-                const mergedSet = new Set([...existingKeywords, ...cachedKeywords])
-                return Array.from(mergedSet).join(',')
+                allKeywords = mergeKeywordCsv(localBaseKeywords, remoteKeywords || cached.keywords || '')
+                return {
+                    mergedKeywords: allKeywords,
+                    entries: keywordSourceEntries(localBaseKeywords, remoteKeywords),
+                    localCount: splitCsvKeywords(localBaseKeywords).length,
+                    remoteCount: splitCsvKeywords(remoteKeywords).length,
+                    totalCount: splitCsvKeywords(allKeywords).length,
+                    remoteConfigured: Boolean(config.SPAM_BLOCKLIST_URL),
+                    remoteReachable,
+                    remoteStatus,
+                    cacheTimestamp
+                }
             }
         }
     } catch (e) {
@@ -65,22 +120,17 @@ export async function getSpamKeywords() {
         try {
             console.log('Fetching fresh blocklist from GitHub')
             const response = await fetch(config.SPAM_BLOCKLIST_URL)
+            remoteStatus = response.status
             if (response.ok) {
+                remoteReachable = true
                 const blocklistText = await response.text()
-                const blocklistKeywords = blocklistText
-                    .split('\n')
-                    .map(k => k.trim())
-                    .filter(k => k && !k.startsWith('#')) // Filter empty lines and comments
-                    // 过滤空行和注释
-                    .join(',')
+                const blocklistKeywords = uniqueKeywords(splitRemoteKeywords(blocklistText)).join(',')
+                remoteKeywords = blocklistKeywords
 
                 if (blocklistKeywords) {
                     // Merge with existing keywords
                     // 与现有关键词合并
-                    const existingKeywords = allKeywords ? allKeywords.split(',').map(k => k.trim()).filter(Boolean) : []
-                    const newKeywords = blocklistKeywords.split(',').map(k => k.trim()).filter(Boolean)
-                    const mergedSet = new Set([...existingKeywords, ...newKeywords])
-                    allKeywords = Array.from(mergedSet).join(',')
+                    allKeywords = mergeKeywordCsv(localBaseKeywords, blocklistKeywords)
 
                     // Cache the merged result
                     // 缓存合并后的结果
@@ -92,17 +142,21 @@ export async function getSpamKeywords() {
                         `);
                         await setStmt.bind(JSON.stringify({
                             keywords: allKeywords,
+                            remote_keywords: blocklistKeywords,
                             timestamp: Date.now()
                         })).run();
+                        cacheTimestamp = Date.now()
                         console.log('Blocklist cached successfully')
                     } catch (e) {
                         console.error('Error caching blocklist:', e)
                     }
                 }
             } else {
+                remoteReachable = false
                 console.warn(`GitHub blocklist fetch failed: ${response.status}`)
             }
         } catch (e) {
+            remoteReachable = false
             console.error('Error fetching GitHub blocklist:', e)
             // Try to use expired cache as fallback
             // 尝试使用过期缓存作为后备
@@ -113,7 +167,8 @@ export async function getSpamKeywords() {
                     const expiredCache = JSON.parse(expiredRow.value);
                     if (expiredCache && expiredCache.keywords) {
                         console.log('Using expired cache as fallback')
-                        return expiredCache.keywords
+                        remoteKeywords = expiredCache.remote_keywords || expiredCache.keywords || ''
+                        allKeywords = mergeKeywordCsv(localBaseKeywords, remoteKeywords)
                     }
                 }
             } catch (fallbackError) {
@@ -122,7 +177,17 @@ export async function getSpamKeywords() {
         }
     }
 
-    return allKeywords
+    return {
+        mergedKeywords: allKeywords,
+        entries: keywordSourceEntries(localBaseKeywords, remoteKeywords),
+        localCount: splitCsvKeywords(localBaseKeywords).length,
+        remoteCount: splitCsvKeywords(remoteKeywords).length,
+        totalCount: splitCsvKeywords(allKeywords).length,
+        remoteConfigured: Boolean(config.SPAM_BLOCKLIST_URL),
+        remoteReachable,
+        remoteStatus,
+        cacheTimestamp
+    }
 }
 
 // Set spam keywords to KV storage

@@ -528,16 +528,47 @@ export class Database {
         }
     }
 
-    async getAdminAuditLogs(limit = 10, offset = 0) {
+    buildAuditFilter(filter = 'all') {
+        const normalized = (filter || 'all').toLowerCase()
+        if (normalized === 'ban') {
+            return {
+                clause: ' AND (action LIKE ? OR action LIKE ?)',
+                params: ['%block%', '%ban%']
+            }
+        }
+        if (normalized === 'whitelist') {
+            return {
+                clause: ' AND action LIKE ?',
+                params: ['%whitelist%']
+            }
+        }
+        if (normalized === 'clear') {
+            return {
+                clause: ' AND action LIKE ?',
+                params: ['%clear%']
+            }
+        }
+        if (normalized === 'broadcast') {
+            return {
+                clause: ' AND action LIKE ?',
+                params: ['%broadcast%']
+            }
+        }
+        return { clause: '', params: [] }
+    }
+
+    async getAdminAuditLogs(limit = 10, offset = 0, filter = 'all') {
         try {
             await this.ensureAuditTable();
+            const { clause, params } = this.buildAuditFilter(filter)
             const stmt = d1.prepare(`
                 SELECT id, admin_id, action, target_id, chat_id, thread_id, success, detail, created_at
                 FROM admin_audit_logs
+                WHERE 1=1 ${clause}
                 ORDER BY id DESC
                 LIMIT ? OFFSET ?
             `);
-            const result = await stmt.bind(limit, offset).all();
+            const result = await stmt.bind(...params, limit, offset).all();
             return result.results || [];
         } catch (error) {
             console.error('Error reading admin audit logs:', error);
@@ -545,11 +576,12 @@ export class Database {
         }
     }
 
-    async getAdminAuditLogCount() {
+    async getAdminAuditLogCount(filter = 'all') {
         try {
             await this.ensureAuditTable();
-            const stmt = d1.prepare(`SELECT COUNT(1) AS c FROM admin_audit_logs`);
-            const row = await stmt.first();
+            const { clause, params } = this.buildAuditFilter(filter)
+            const stmt = d1.prepare(`SELECT COUNT(1) AS c FROM admin_audit_logs WHERE 1=1 ${clause}`);
+            const row = await stmt.bind(...params).first();
             return Number(row?.c || 0);
         } catch (error) {
             console.error('Error counting admin audit logs:', error);

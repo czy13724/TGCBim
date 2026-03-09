@@ -92,13 +92,14 @@ export async function handleHelpCommand(message) {
             text += `/tpl add|del|list|&lt;键&gt; - 模板管理\n`
             text += `/spamstats - 垃圾拦截统计\n`
             text += `/listspam - 查看垃圾关键词列表\n`
+            text += `/spamhealth - 查看远程词库健康状态\n`
             text += `/addspam &lt;关键词&gt; - 添加垃圾关键词\n`
             text += `/removespam &lt;关键词&gt; - 删除垃圾关键词\n`
             text += `/maintenance - 维护模式面板（按钮开关）\n`
             text += `/listadmins - 查看所有管理员\n`
             text += `/addadmin /removeadmin - 增删动态管理员（仅所有者）\n`
             text += `/refreshspam - 强制刷新远程关键词列表\n`
-            text += `/audit [页码] - 查看最近管理员操作日志\n`
+            text += `/audit [页码] 或 /audit <all|ban|whitelist|clear|broadcast> [页码] - 查看管理员审计日志\n`
             text += `/lang - 切换管理员界面语言\n`
             text += `\n🛡 SAFE_MODE 开启时，高风险命令仅所有者可用。\n`
         } else {
@@ -116,13 +117,14 @@ export async function handleHelpCommand(message) {
             text += `/tpl add|del|list|&lt;key&gt; - Template management\n`
             text += `/spamstats - Spam statistics\n`
             text += `/listspam - List spam keywords\n`
+            text += `/spamhealth - Check remote blocklist health\n`
             text += `/addspam &lt;kw&gt; - Add spam keyword\n`
             text += `/removespam &lt;kw&gt; - Remove spam keyword\n`
             text += `/maintenance - Maintenance panel (button toggle)\n`
             text += `/listadmins - List all admins\n`
             text += `/addadmin /removeadmin - Manage dynamic admins (owner only)\n`
             text += `/refreshspam - Force refresh remote spam blocklist\n`
-            text += `/audit [page] - Show recent admin audit logs\n`
+            text += `/audit [page] or /audit <all|ban|whitelist|clear|broadcast> [page] - Show admin audit logs\n`
             text += `/lang - Switch admin interface language\n`
             text += `\n🛡 When SAFE_MODE is enabled, high-risk commands are owner-only.\n`
         }
