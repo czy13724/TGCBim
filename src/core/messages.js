@@ -35,17 +35,19 @@ export async function forwardMessageU2A(message) {
 
     const isBlocked = await db.isUserBlocked(user.id)
     if (isBlocked) {
-        // Notify user they are blocked — only once per day to avoid spam
-        // 通知用户已被封禁，每天最多通知一次避免刷屏
+        // Notify blocked user with cooldown (1 hour) to avoid silent failures or spam.
+        // 向被封禁用户发送提示（1小时冷却），避免静默无提示或刷屏。
         try {
             const dbUser = await db.getUser(user.id).catch(() => null)
             const savedLang = await db.getUserState(user.id, 'user_pref_lang').catch(() => null)
             const lang = savedLang === 'zh' || savedLang === 'en' ? savedLang : getLang(dbUser || user)
-            const today = new Date().toDateString()
-            const lastNotified = await db.getUserState(user.id, 'block_notify_date').catch(() => null)
-            if (lastNotified !== today) {
-                await db.setUserState(user.id, 'block_notify_date', today)
-                await sendMessage({ chat_id: chat_id, text: t('user_blocked', lang) })
+            const now = Date.now()
+            const lastNotifyTs = Number(await db.getUserState(user.id, 'block_notify_ts').catch(() => 0) || 0)
+            if (!lastNotifyTs || now - lastNotifyTs > 3600 * 1000) {
+                const resp = await sendMessage({ chat_id: chat_id, text: t('user_blocked', lang) })
+                if (resp && resp.ok) {
+                    await db.setUserState(user.id, 'block_notify_ts', now)
+                }
             }
         } catch (e) {
             console.error('Failed to send block notification:', e)

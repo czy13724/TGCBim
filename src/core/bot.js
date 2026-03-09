@@ -78,6 +78,10 @@ export async function onUpdate(update, extra = {}) {
                         case '/stats': return await handleStatsCommand(message)
                         case '/help': return await handleHelpCommand(message)
                         case '/maintenance':
+                            if (!isGlobalAdminOrOwner(user.id)) {
+                                const lang = getLang(user)
+                                return sendMessage({ chat_id, text: t('admin_unauthorized', lang), reply_to_message_id: message.message_id })
+                            }
                             return await handleMaintenanceCommand(message)
                         case '/userinfo': return await handleUserInfoCommand(message)
                         case '/whitelist': return await handleWhitelistCommand(message)

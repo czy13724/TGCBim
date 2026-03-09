@@ -148,6 +148,9 @@ const dict = {
     admin_maintenance_status: { en: 'Current status: {STATUS}', zh: '当前状态：{STATUS}' },
     admin_maintenance_status_on: { en: 'ON', zh: '开启' },
     admin_maintenance_status_off: { en: 'OFF', zh: '关闭' },
+    admin_maintenance_already_on: { en: 'Maintenance is already ON.', zh: '维护模式已经是开启状态。' },
+    admin_maintenance_already_off: { en: 'Maintenance is already OFF.', zh: '维护模式已经是关闭状态。' },
+    admin_audit_page_usage: { en: 'Usage: /audit [page], 10 records per page.', zh: '用法：/audit [页码]，每页 10 条。' },
 
 };
 

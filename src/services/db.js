@@ -483,20 +483,32 @@ export class Database {
         }
     }
 
-    async getAdminAuditLogs(limit = 20) {
+    async getAdminAuditLogs(limit = 10, offset = 0) {
         try {
             await this.ensureAuditTable();
             const stmt = d1.prepare(`
                 SELECT id, admin_id, action, target_id, chat_id, thread_id, success, detail, created_at
                 FROM admin_audit_logs
                 ORDER BY id DESC
-                LIMIT ?
+                LIMIT ? OFFSET ?
             `);
-            const result = await stmt.bind(limit).all();
+            const result = await stmt.bind(limit, offset).all();
             return result.results || [];
         } catch (error) {
             console.error('Error reading admin audit logs:', error);
             return [];
+        }
+    }
+
+    async getAdminAuditLogCount() {
+        try {
+            await this.ensureAuditTable();
+            const stmt = d1.prepare(`SELECT COUNT(1) AS c FROM admin_audit_logs`);
+            const row = await stmt.first();
+            return Number(row?.c || 0);
+        } catch (error) {
+            console.error('Error counting admin audit logs:', error);
+            return 0;
         }
     }
 

@@ -277,7 +277,10 @@ function maintenanceKeyboard(lang) {
 }
 
 export async function handleMaintenanceCommand(message) {
-    if (!isGlobalAdminOrOwner(message.from.id)) return
+    if (!isGlobalAdminOrOwner(message.from.id)) {
+        const lang = await getAdminLang(message.from)
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_unauthorized', lang), reply_to_message_id: message.message_id })
+    }
     const lang = await getAdminLang(message.from)
     if (await denyIfSafeMode(message, lang, 'maintenance_toggle')) return
 
@@ -320,6 +323,15 @@ export async function handleMaintenanceCallback(callbackQuery) {
     }
 
     const enable = data === 'admin:maint_on'
+    const current = await db.getCounter('maintenance_mode')
+    if ((enable && current === 1) || (!enable && current === 0)) {
+        await answerCallbackQuery(callbackQuery.id, {
+            text: enable ? t('admin_maintenance_already_on', lang) : t('admin_maintenance_already_off', lang),
+            show_alert: false
+        })
+        return true
+    }
+
     const stmt = d1.prepare("INSERT INTO counters (key, value) VALUES ('maintenance_mode', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
     await stmt.bind(enable ? 1 : 0).run()
     await db.addAdminAuditLog({
@@ -553,15 +565,22 @@ export async function handleAuditCommand(message) {
     if (!isGlobalAdminOrOwner(message.from.id)) return
     const lang = await getAdminLang(message.from)
     const args = message.text.split(/\s+/)
-    const requested = Number.parseInt(args[1] || '20', 10)
-    const limit = Number.isFinite(requested) ? Math.min(Math.max(requested, 1), 50) : 20
+    const requested = Number.parseInt(args[1] || '1', 10)
+    const page = Number.isFinite(requested) ? Math.max(requested, 1) : 1
+    const pageSize = 10
+    const total = await db.getAdminAuditLogCount()
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+    const normalizedPage = Math.min(page, totalPages)
+    const offset = (normalizedPage - 1) * pageSize
 
-    const rows = await db.getAdminAuditLogs(limit)
+    const rows = await db.getAdminAuditLogs(pageSize, offset)
     if (!rows.length) {
         return sendMessage({ chat_id: message.chat.id, text: t('admin_audit_empty', lang), reply_to_message_id: message.message_id })
     }
 
-    const title = lang === 'zh' ? `🧾 最近管理员操作（${rows.length}条）\n` : `🧾 Recent Admin Actions (${rows.length})\n`
+    const title = lang === 'zh'
+        ? `🧾 最近管理员操作（第 ${normalizedPage}/${totalPages} 页）\n${t('admin_audit_page_usage', lang)}\n`
+        : `🧾 Recent Admin Actions (Page ${normalizedPage}/${totalPages})\n${t('admin_audit_page_usage', lang)}\n`
     const lines = rows.map(row => {
         const time = new Date(row.created_at).toISOString().slice(11, 19)
         const ok = row.success ? 'OK' : 'FAIL'
