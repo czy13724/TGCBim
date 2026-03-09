@@ -11,6 +11,7 @@ import { getLang, t } from '../services/i18n.js';
 
 const LISTSPAM_MAX_ITEMS_PER_PAGE = 80
 const LISTSPAM_MAX_BODY_LENGTH = 3200
+const LISTSPAM_BUTTON_PAGE_SIZE = 50
 
 async function logAdminAction(message, action, targetId = null, success = true, detail = null) {
     await db.addAdminAuditLog({
@@ -503,37 +504,14 @@ export async function handleSpamCommand(message, command) {
     }
 
     if (command === '/listspam') {
-        const current = await getSpamKeywords()
-        const list = (current || '').split(',').map(k => k.trim()).filter(Boolean)
-
-        if (list.length === 0) {
-            return sendMessage({ chat_id: message.chat.id, text: lang === 'zh' ? '垃圾关键词为空。' : 'Spam keyword list is empty.' })
-        }
-
-        const totalPages = Math.max(1, Math.ceil(list.length / LISTSPAM_MAX_ITEMS_PER_PAGE))
-        let page = Number.parseInt(args[1] || '1', 10)
-        if (!Number.isFinite(page) || page < 1) page = 1
-        if (page > totalPages) page = totalPages
-
-        const from = (page - 1) * LISTSPAM_MAX_ITEMS_PER_PAGE
-        const hardTo = Math.min(list.length, from + LISTSPAM_MAX_ITEMS_PER_PAGE)
-
-        const lines = []
-        let bodyLength = 0
-        for (let i = from; i < hardTo; i++) {
-            let line = `${i + 1}. ${list[i]}`
-            if (line.length > 500) line = `${line.slice(0, 500)}...`
-            if (bodyLength + line.length + 1 > LISTSPAM_MAX_BODY_LENGTH && lines.length > 0) break
-            lines.push(line)
-            bodyLength += line.length + 1
-        }
-
-        const shownTo = from + lines.length
-        const header = lang === 'zh'
-            ? `垃圾关键词（第 ${page}/${totalPages} 页，显示 ${from + 1}-${shownTo} / 共 ${list.length} 条）\n用法：/listspam [页码]\n\n`
-            : `Spam Keywords (Page ${page}/${totalPages}, showing ${from + 1}-${shownTo} of ${list.length})\nUsage: /listspam [page]\n\n`
-
-        return sendMessage({ chat_id: message.chat.id, text: `${header}${lines.join('\n')}` })
+        const requested = Number.parseInt(args[1] || '1', 10)
+        const page = Number.isFinite(requested) ? Math.max(requested, 1) : 1
+        return renderListSpamPage({
+            lang,
+            page,
+            chat_id: message.chat.id,
+            reply_to_message_id: message.message_id
+        })
     }
 
     if (command === '/checkspam') {
@@ -567,6 +545,77 @@ export async function handleSpamCommand(message, command) {
             return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_refresh_fail', lang, { MSG: e.message }) })
         }
     }
+}
+
+function listSpamKeyboard(page, totalPages) {
+    const row = []
+    if (page > 1) row.push({ text: '⬅️ Prev', callback_data: `admin:listspam:${page - 1}` })
+    row.push({ text: `${page}/${totalPages}`, callback_data: 'admin:listspam:noop' })
+    if (page < totalPages) row.push({ text: 'Next ➡️', callback_data: `admin:listspam:${page + 1}` })
+    return { inline_keyboard: [row] }
+}
+
+async function renderListSpamPage({ lang, page, chat_id, reply_to_message_id = null, message_id = null }) {
+    const current = await getSpamKeywords()
+    const list = (current || '').split(',').map(k => k.trim()).filter(Boolean)
+    if (!list.length) {
+        return sendMessage({ chat_id, text: lang === 'zh' ? '垃圾关键词为空。' : 'Spam keyword list is empty.', reply_to_message_id })
+    }
+
+    const totalPages = Math.max(1, Math.ceil(list.length / LISTSPAM_BUTTON_PAGE_SIZE))
+    const normalizedPage = Math.min(Math.max(page, 1), totalPages)
+    const from = (normalizedPage - 1) * LISTSPAM_BUTTON_PAGE_SIZE
+    const hardTo = Math.min(list.length, from + LISTSPAM_BUTTON_PAGE_SIZE)
+
+    const lines = []
+    let bodyLength = 0
+    for (let i = from; i < hardTo; i++) {
+        let line = `${i + 1}. ${list[i]}`
+        if (line.length > 500) line = `${line.slice(0, 500)}...`
+        if (bodyLength + line.length + 1 > LISTSPAM_MAX_BODY_LENGTH && lines.length > 0) break
+        lines.push(line)
+        bodyLength += line.length + 1
+    }
+
+    const shownTo = from + lines.length
+    const header = lang === 'zh'
+        ? `垃圾关键词（第 ${normalizedPage}/${totalPages} 页，显示 ${from + 1}-${shownTo} / 共 ${list.length} 条）\n`
+        : `Spam Keywords (Page ${normalizedPage}/${totalPages}, showing ${from + 1}-${shownTo} of ${list.length})\n`
+
+    const payload = {
+        chat_id,
+        text: `${header}\n${lines.join('\n')}`.slice(0, 3900),
+        reply_markup: listSpamKeyboard(normalizedPage, totalPages)
+    }
+    if (message_id) {
+        payload.message_id = message_id
+        return editMessage(payload)
+    }
+    if (reply_to_message_id) payload.reply_to_message_id = reply_to_message_id
+    return sendMessage(payload)
+}
+
+export async function handleListSpamCallback(callbackQuery) {
+    const data = callbackQuery?.data || ''
+    if (!data.startsWith('admin:listspam:')) return false
+    const lang = await getAdminLang(callbackQuery.from)
+    if (data === 'admin:listspam:noop') {
+        await answerCallbackQuery(callbackQuery.id, { text: ' ' })
+        return true
+    }
+    try {
+        const page = Number.parseInt(data.split(':')[2] || '1', 10)
+        await renderListSpamPage({
+            lang,
+            page: Number.isFinite(page) ? page : 1,
+            chat_id: callbackQuery.message.chat.id,
+            message_id: callbackQuery.message.message_id
+        })
+        await answerCallbackQuery(callbackQuery.id, { text: 'OK' })
+    } catch {
+        await answerCallbackQuery(callbackQuery.id, { text: 'Failed', show_alert: false }).catch(() => { })
+    }
+    return true
 }
 
 export async function handleAuditCommand(message) {
