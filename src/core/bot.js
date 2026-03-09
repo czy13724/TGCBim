@@ -2,10 +2,10 @@
  * Main Update Handler
  * 主更新处理程序
  */
-import { config, isGlobalAdminOrOwner } from '../config.js';
+import { config, isGlobalAdminOrOwner, isOwner } from '../config.js';
 import { db, d1 } from '../services/db.js';
 import { requestTelegram, sendMessage, answerCallbackQuery, getRateLimitStatus, isGroupAdmin } from '../services/telegram.js';
-import { handleStart, handleBroadcastCommand, handleBlockCommand, handleUnblockCommand, handleCheckBlockCommand, handleClearCommand, handleCloseCommand, handleReopenCommand, handleStatsCommand, handleHelpCommand, handleMaintenanceToggle, handleTemplateCommand, handleUserInfoCommand, handleUidCommand, handleSpamCommand, handleWhitelistCommand, handleLangCommand, handleLangCallback } from '../commands/index.js';
+import { handleStart, handleBroadcastCommand, handleBlockCommand, handleUnblockCommand, handleCheckBlockCommand, handleClearCommand, handleCloseCommand, handleReopenCommand, handleStatsCommand, handleHelpCommand, handleMaintenanceToggle, handleTemplateCommand, handleUserInfoCommand, handleUidCommand, handleSpamCommand, handleWhitelistCommand, handleLangCommand, handleLangCallback, handleAuditCommand } from '../commands/index.js';
 import { forwardMessageU2A, forwardMessageA2U, handleOldModeAdminReply, handleEditedMessage } from './messages.js';
 import { handleGroupSpam } from './spam.js';
 import { checkInactiveTopics, handleBotMentionOrReply } from '../utils/helpers.js';
@@ -105,6 +105,7 @@ export async function onUpdate(update, extra = {}) {
                             return sendMessage({ chat_id, text: adminText, parse_mode: 'HTML', reply_to_message_id: message.message_id })
                         }
                         case '/lang': return await handleLangCommand(message)
+                        case '/audit': return await handleAuditCommand(message)
                     }
 
 
@@ -187,25 +188,60 @@ export async function onUpdate(update, extra = {}) {
             const data = callbackQuery.data;
 
             // Admin Actions
-            if (data && data.startsWith('admin:')) {
+                    if (data && data.startsWith('admin:')) {
                 const isAdmin = isGlobalAdminOrOwner(callbackQuery.from.id) ||
                     (config.ADMIN_GROUP_ID && await isGroupAdmin(config.ADMIN_GROUP_ID, callbackQuery.from.id));
 
-                if (isAdmin) {
-                    const parts = data.split(':');
-                    const action = parts[1];
-                    const targetUid = parts[2];
+                    if (isAdmin) {
+                        if (config.SAFE_MODE && !isOwner(callbackQuery.from.id)) {
+                            const adminLang = getLang(callbackQuery.from)
+                            await db.addAdminAuditLog({
+                                admin_id: callbackQuery.from.id,
+                                action: 'admin_callback_blocked',
+                                target_id: null,
+                                chat_id: callbackQuery.message?.chat?.id,
+                                thread_id: callbackQuery.message?.message_thread_id,
+                                success: false,
+                                detail: `safe_mode:${callbackQuery.data}`
+                            })
+                            await answerCallbackQuery(callbackQuery.id, {
+                                text: t('admin_safe_mode_blocked', adminLang),
+                                show_alert: true
+                            });
+                            return;
+                        }
+                        const parts = data.split(':');
+                        const action = parts[1];
+                        const targetUid = parts[2];
                     const adminDbUser = await db.getUser(callbackQuery.from.id).catch(() => null)
                     const adminLang = getLang(adminDbUser || callbackQuery.from)
 
                     if (action === 'ban') {
                         await db.blockUser(targetUid, true);
+                        await db.addAdminAuditLog({
+                            admin_id: callbackQuery.from.id,
+                            action: 'callback_ban',
+                            target_id: targetUid,
+                            chat_id: callbackQuery.message?.chat?.id,
+                            thread_id: callbackQuery.message?.message_thread_id,
+                            success: true,
+                            detail: 'inline_button'
+                        })
                         await answerCallbackQuery(callbackQuery.id, {
                             text: t('admin_blocked', adminLang, { UID: targetUid }),
                             show_alert: true
                         });
                     } else if (action === 'whitelist') {
                         await db.addToWhitelist(targetUid);
+                        await db.addAdminAuditLog({
+                            admin_id: callbackQuery.from.id,
+                            action: 'callback_whitelist',
+                            target_id: targetUid,
+                            chat_id: callbackQuery.message?.chat?.id,
+                            thread_id: callbackQuery.message?.message_thread_id,
+                            success: true,
+                            detail: 'inline_button'
+                        })
                         await answerCallbackQuery(callbackQuery.id, {
                             text: t('admin_whitelist_added', adminLang, { UID: targetUid }),
                             show_alert: true

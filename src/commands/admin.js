@@ -2,7 +2,7 @@
  * Admin Commands
  * 管理员命令
  */
-import { config, isGlobalAdminOrOwner } from '../config.js';
+import { config, isGlobalAdminOrOwner, isOwner } from '../config.js';
 import { db, d1, tplGet, tplSet, tplDel, tplList } from '../services/db.js';
 import { sendMessage, copyMessage, closeForumTopic, reopenForumTopic, editMessage, answerCallbackQuery } from '../services/telegram.js';
 import { escapeHtml, delay, formatTime } from '../utils/utils.js';
@@ -12,10 +12,33 @@ import { getLang, t } from '../services/i18n.js';
 const LISTSPAM_MAX_ITEMS_PER_PAGE = 80
 const LISTSPAM_MAX_BODY_LENGTH = 3200
 
+async function logAdminAction(message, action, targetId = null, success = true, detail = null) {
+    await db.addAdminAuditLog({
+        admin_id: message?.from?.id,
+        action,
+        target_id: targetId,
+        chat_id: message?.chat?.id,
+        thread_id: message?.message_thread_id,
+        success,
+        detail
+    })
+}
+
+async function denyIfSafeMode(message, lang, action) {
+    if (config.SAFE_MODE && !isOwner(message.from.id)) {
+        await logAdminAction(message, action, null, false, 'blocked_by_safe_mode')
+        await sendMessage({ chat_id: message.chat.id, text: t('admin_safe_mode_blocked', lang), reply_to_message_id: message.message_id })
+        return true
+    }
+    return false
+}
+
 // === Broadcast ===
 // === 广播 ===
 export async function handleBroadcastCommand(message) {
     if (!isGlobalAdminOrOwner(message.from.id)) return 'Unauthorized'
+    const lang = getLang(message.from)
+    if (await denyIfSafeMode(message, lang, 'broadcast')) return
 
     const args = message.text.split(' ').slice(1)
     const text = args.join(' ')
@@ -25,6 +48,7 @@ export async function handleBroadcastCommand(message) {
     }
 
     sendMessage({ chat_id: message.chat.id, text: `📢 Broadcast started in background...` })
+    await logAdminAction(message, 'broadcast_start', null, true, `args_length=${args.length}`)
 
     // Execute broadcast logic
     // 执行广播逻辑
@@ -66,6 +90,7 @@ export async function handleBroadcastCommand(message) {
             text: `✅ Broadcast complete.\nSent: ${count}\nFailed: ${failed}\nDuration: ${duration}s`,
             reply_to_message_id: message.message_id
         })
+        await logAdminAction(message, 'broadcast_finish', null, true, `sent=${count},failed=${failed},duration=${duration}s`)
     }
 
     // Run in background using waitUntil if available
@@ -117,6 +142,8 @@ async function handleBlockUnblock(message, isBlock) {
     }
 
     const lang = getLang(message.from)
+    const actionName = isBlock ? 'block' : 'unblock'
+    if (await denyIfSafeMode(message, lang, actionName)) return
 
     if (!targetId) {
         return sendMessage({
@@ -130,10 +157,12 @@ async function handleBlockUnblock(message, isBlock) {
 
     if (isBlock) {
         await db.blockUser(targetId, true)
+        await logAdminAction(message, 'block', targetId, true, 'manual')
         await sendMessage({ chat_id: message.chat.id, text: t('admin_blocked', lang, { UID: targetId }) })
     } else {
         await db.blockUser(targetId, false)
         await db.blockUserOld(targetId, false)
+        await logAdminAction(message, 'unblock', targetId, true, 'manual')
         await sendMessage({ chat_id: message.chat.id, text: t('admin_unblocked', lang, { UID: targetId }) })
     }
 }
@@ -218,14 +247,17 @@ export async function handleReopenCommand(message) {
 export async function handleMaintenanceToggle(enable, message) {
     if (!isGlobalAdminOrOwner(message.from.id)) return
     const lang = getLang(message.from)
+    if (await denyIfSafeMode(message, lang, 'maintenance_toggle')) return
 
     if (enable) {
         const stmt = d1.prepare("INSERT INTO counters (key, value) VALUES ('maintenance_mode', 1) ON CONFLICT(key) DO UPDATE SET value = 1");
         await stmt.run();
+        await logAdminAction(message, 'maintenance_on', null, true)
         return await sendMessage({ chat_id: message.chat.id, text: t('admin_maintenance_on', lang), reply_to_message_id: message.message_id })
     } else {
         const stmt = d1.prepare("INSERT INTO counters (key, value) VALUES ('maintenance_mode', 0) ON CONFLICT(key) DO UPDATE SET value = 0");
         await stmt.run();
+        await logAdminAction(message, 'maintenance_off', null, true)
         return await sendMessage({ chat_id: message.chat.id, text: t('admin_maintenance_off', lang), reply_to_message_id: message.message_id })
     }
 }
@@ -338,6 +370,8 @@ export async function handleUidCommand(message) {
 export async function handleSpamCommand(message, command) {
     const args = message.text.split(/\s+/)
     const lang = getLang(message.from)
+    const mutating = ['/addspam', '/removespam', '/refreshspam'].includes(command)
+    if (mutating && await denyIfSafeMode(message, lang, `spam_${command.slice(1)}`)) return
 
     if (command === '/addspam') {
         const kw = args.slice(1).join(' ')
@@ -347,6 +381,7 @@ export async function handleSpamCommand(message, command) {
         if (list.includes(kw)) return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_exists', lang) })
         list.push(kw)
         await setSpamKeywords(list.join(','))
+        await logAdminAction(message, 'spam_add', kw, true)
         return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_added', lang, { KW: kw }) })
     }
 
@@ -358,6 +393,7 @@ export async function handleSpamCommand(message, command) {
         if (!list.includes(kw)) return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_not_found', lang) })
         list = list.filter(k => k !== kw)
         await setSpamKeywords(list.join(','))
+        await logAdminAction(message, 'spam_remove', kw, true)
         return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_removed', lang, { KW: kw }) })
     }
 
@@ -403,8 +439,13 @@ export async function handleSpamCommand(message, command) {
     }
 
     if (command === '/spamstats') {
+        const detected = await db.getCounter('spam_detected')
+        const warned = await db.getCounter('spam_warned')
         const blocked = await db.getCounter('spam_blocked')
-        return sendMessage({ chat_id: message.chat.id, text: lang === 'zh' ? `已拦截垃圾消息：${blocked} 条` : `Spam Blocked: ${blocked}` })
+        if (lang === 'zh') {
+            return sendMessage({ chat_id: message.chat.id, text: `垃圾检测：${detected} 次\n警告：${warned} 次\n封禁：${blocked} 次` })
+        }
+        return sendMessage({ chat_id: message.chat.id, text: `Spam Detected: ${detected}\nWarnings: ${warned}\nBlocked: ${blocked}` })
     }
 
     if (command === '/refreshspam') {
@@ -414,11 +455,41 @@ export async function handleSpamCommand(message, command) {
             await delStmt.run()
             const freshKeywords = await getSpamKeywords()
             const count = freshKeywords ? freshKeywords.split(',').filter(Boolean).length : 0
+            await logAdminAction(message, 'spam_refresh', null, true, `count=${count}`)
             return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_refreshed', lang, { COUNT: count }) })
         } catch (e) {
+            await logAdminAction(message, 'spam_refresh', null, false, e.message)
             return sendMessage({ chat_id: message.chat.id, text: t('admin_spam_refresh_fail', lang, { MSG: e.message }) })
         }
     }
+}
+
+export async function handleAuditCommand(message) {
+    if (!isGlobalAdminOrOwner(message.from.id)) return
+    const lang = getLang(message.from)
+    const args = message.text.split(/\s+/)
+    const requested = Number.parseInt(args[1] || '20', 10)
+    const limit = Number.isFinite(requested) ? Math.min(Math.max(requested, 1), 50) : 20
+
+    const rows = await db.getAdminAuditLogs(limit)
+    if (!rows.length) {
+        return sendMessage({ chat_id: message.chat.id, text: t('admin_audit_empty', lang), reply_to_message_id: message.message_id })
+    }
+
+    const title = lang === 'zh' ? `🧾 最近管理员操作（${rows.length}条）\n` : `🧾 Recent Admin Actions (${rows.length})\n`
+    const lines = rows.map(row => {
+        const time = new Date(row.created_at).toISOString().replace('T', ' ').slice(0, 19)
+        const ok = row.success ? 'OK' : 'FAIL'
+        const target = row.target_id ? ` target=${row.target_id}` : ''
+        const detail = row.detail ? ` detail=${row.detail}` : ''
+        return `${time} #${row.id} admin=${row.admin_id} ${row.action}${target} ${ok}${detail}`
+    })
+
+    return sendMessage({
+        chat_id: message.chat.id,
+        text: `${title}${lines.join('\n')}`.slice(0, 3900),
+        reply_to_message_id: message.message_id
+    })
 }
 
 export async function handleWhitelistCommand(message) {
@@ -429,6 +500,7 @@ export async function handleWhitelistCommand(message) {
     const sub = args[1]?.toLowerCase()
 
     if (sub === 'add') {
+        if (await denyIfSafeMode(message, lang, 'whitelist_add')) return
         const targetId = args[2]
         if (!targetId && message.reply_to_message) {
             let replyId = await db.getOldMessageMap(message.reply_to_message.message_id)
@@ -437,6 +509,7 @@ export async function handleWhitelistCommand(message) {
             }
             if (replyId) {
                 await db.addToWhitelist(replyId)
+                await logAdminAction(message, 'whitelist_add', replyId, true, 'by_reply')
                 return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_added', lang, { UID: replyId }) })
             }
             const threadId = message.message_thread_id;
@@ -444,18 +517,21 @@ export async function handleWhitelistCommand(message) {
                 const u = await db.findUserByThreadId(threadId)
                 if (u) {
                     await db.addToWhitelist(u.user_id)
+                    await logAdminAction(message, 'whitelist_add', u.user_id, true, 'by_thread')
                     return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_added', lang, { UID: u.user_id }) })
                 }
             }
             return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_usage_add', lang) })
         } else if (targetId) {
             await db.addToWhitelist(targetId)
+            await logAdminAction(message, 'whitelist_add', targetId, true, 'by_arg')
             return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_added', lang, { UID: targetId }) })
         }
         return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_usage_add2', lang) })
     }
 
     if (sub === 'remove' || sub === 'del') {
+        if (await denyIfSafeMode(message, lang, 'whitelist_remove')) return
         const targetId = args[2]
         if (!targetId && message.reply_to_message) {
             let replyId = await db.getOldMessageMap(message.reply_to_message.message_id)
@@ -464,6 +540,7 @@ export async function handleWhitelistCommand(message) {
             }
             if (replyId) {
                 await db.removeFromWhitelist(replyId)
+                await logAdminAction(message, 'whitelist_remove', replyId, true, 'by_reply')
                 return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_removed', lang, { UID: replyId }) })
             }
             const threadId = message.message_thread_id;
@@ -471,12 +548,14 @@ export async function handleWhitelistCommand(message) {
                 const u = await db.findUserByThreadId(threadId)
                 if (u) {
                     await db.removeFromWhitelist(u.user_id)
+                    await logAdminAction(message, 'whitelist_remove', u.user_id, true, 'by_thread')
                     return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_removed', lang, { UID: u.user_id }) })
                 }
             }
             return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_usage_remove', lang) })
         } else if (targetId) {
             await db.removeFromWhitelist(targetId)
+            await logAdminAction(message, 'whitelist_remove', targetId, true, 'by_arg')
             return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_removed', lang, { UID: targetId }) })
         }
         return sendMessage({ chat_id: message.chat.id, text: t('admin_whitelist_usage_remove2', lang) })

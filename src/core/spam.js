@@ -8,6 +8,17 @@ import { sendMessage, deleteMessage, banChatMember, kickChatMember } from '../se
 import { getLang, t } from '../services/i18n.js';
 import { escapeHtml } from '../utils/utils.js';
 
+function normalizeStrikeState(state) {
+    if (!state || typeof state !== 'object') {
+        return { count: 0, first_at: 0, last_at: 0 };
+    }
+    return {
+        count: Number.isFinite(state.count) ? state.count : 0,
+        first_at: Number.isFinite(state.first_at) ? state.first_at : 0,
+        last_at: Number.isFinite(state.last_at) ? state.last_at : 0
+    };
+}
+
 /**
  * Get spam keywords (with caching)
  * 获取垃圾邮件关键词（带缓存）
@@ -223,8 +234,22 @@ export async function checkSpam(message) {
 export async function handleSpamDetected(message, user, spamInfo) {
     const user_id = user.id
     const chat_id = message.chat.id
+    const now = Date.now()
+    const threshold = Math.max(1, Number(config.SPAM_BLOCK_THRESHOLD) || 3)
+    const windowMs = Math.max(1, Number(config.SPAM_STRIKE_WINDOW_HOURS) || 24) * 3600 * 1000
 
     console.log(`Spam detected from user ${user_id}:`, spamInfo)
+    await db.incrementCounter('spam_detected')
+
+    let strikeState = normalizeStrikeState(await db.getUserState(user_id, 'spam_strike_state'))
+    if (!strikeState.first_at || now - strikeState.first_at > windowMs) {
+        strikeState = { count: 0, first_at: now, last_at: now }
+    }
+    strikeState.count += 1
+    strikeState.last_at = now
+    await db.setUserState(user_id, 'spam_strike_state', strikeState)
+
+    const shouldBlock = config.SPAM_ACTION === 'block' && strikeState.count >= threshold
 
     // Send notification to admin
     // 向管理员发送通知
@@ -248,13 +273,14 @@ export async function handleSpamDetected(message, user, spamInfo) {
     }
 
     alertText += `⚙️ <b>Action Taken:</b>\n`
+    alertText += `• Strike: ${strikeState.count}/${threshold} (window ${Math.max(1, Number(config.SPAM_STRIKE_WINDOW_HOURS) || 24)}h)\n`
 
     // Take action based on SPAM_ACTION
     // 根据 SPAM_ACTION 采取行动
-    if (config.SPAM_ACTION === 'block') {
+    if (shouldBlock) {
         await db.blockUser(user_id, true)
         await db.incrementCounter('spam_blocked')
-        alertText += `• ✅ User blocked automatically\n`
+        alertText += `• ✅ User blocked automatically (threshold reached)\n`
 
         // Delete message from user's chat if enabled
         // 如果启用，则从用户的聊天中删除消息
@@ -288,6 +314,44 @@ export async function handleSpamDetected(message, user, spamInfo) {
             })
         } catch (e) {
             console.error('Failed to notify spam user:', e)
+        }
+    } else if (config.SPAM_ACTION === 'block') {
+        // Block mode with graduated strikes: warn until threshold is reached.
+        // block 模式下分级处理：达到阈值前只警告。
+        await db.incrementCounter('spam_warned')
+        alertText += `• ⚠️ User warned (not blocked yet)\n`
+
+        if (config.DELETE_SPAM_MESSAGE) {
+            try {
+                await deleteMessage(chat_id, message.message_id)
+                alertText += `• ✅ Spam message deleted from user chat\n`
+            } catch (e) {
+                console.error(`Failed to delete spam message ${message.message_id}:`, e)
+                alertText += `• ⚠️ Could not delete message from user chat\n`
+            }
+        }
+
+        alertText += `\n⏰ Time: ${new Date().toISOString()}`
+
+        await sendMessage({
+            chat_id: config.ADMIN_UID,
+            text: alertText,
+            parse_mode: 'HTML'
+        })
+
+        try {
+            let dbUser = null;
+            try { dbUser = await db.getUser(user_id); } catch (e) { }
+            const lang = getLang(dbUser || message.from);
+            await sendMessage({
+                chat_id: user_id,
+                text: t('spam_warning', lang, {
+                    COUNT: String(strikeState.count),
+                    THRESHOLD: String(threshold)
+                })
+            })
+        } catch (e) {
+            console.error('Failed to send spam warning:', e)
         }
     } else {
         // Just notify, don't block

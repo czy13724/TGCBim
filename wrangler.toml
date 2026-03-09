@@ -32,6 +32,7 @@ WELCOME_MESSAGE = "Hi,there! This is my contact bot.How it's going？"
 
 # 【常改】维护模式提示语 / Message shown during maintenance mode
 MAINTENANCE_MESSAGE = "We are under maintenance. Please try again later."
+SAFE_MODE = "false"
 
 # 【偶改】管理群组 ID（群模式必填，私聊模式留空）/ Admin group ID (for Group Mode)
 # ADMIN_GROUP_ID = "-100xxxxxxxxxx"
@@ -69,6 +70,8 @@ GROUP_SPAM_ACTION = "ban"
 
 # 【少改】群管理员不受反垃圾限制 / Exempt group admins from spam checks
 GROUP_ADMIN_PERMISSIONS = "true"
+SPAM_BLOCK_THRESHOLD = "3"
+SPAM_STRIKE_WINDOW_HOURS = "24"
 
 # ── 验证 Verification ────────────────────────────────────────
 

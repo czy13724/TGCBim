@@ -5,6 +5,7 @@
 import { config } from '../config.js';
 
 export let d1 = null;
+let auditTableEnsurePromise = null;
 
 export function initDb(env) {
     if (env.DB) {
@@ -15,6 +16,30 @@ export function initDb(env) {
 }
 
 export class Database {
+    async ensureAuditTable() {
+        if (auditTableEnsurePromise) {
+            await auditTableEnsurePromise;
+            return;
+        }
+        auditTableEnsurePromise = (async () => {
+            const stmt = d1.prepare(`
+                CREATE TABLE IF NOT EXISTS admin_audit_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    admin_id TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    target_id TEXT,
+                    chat_id TEXT,
+                    thread_id TEXT,
+                    success INTEGER NOT NULL DEFAULT 1,
+                    detail TEXT,
+                    created_at INTEGER NOT NULL
+                )
+            `);
+            await stmt.run();
+        })();
+        await auditTableEnsurePromise;
+    }
+
     // User related operations
     async getUser(user_id) {
         try {
@@ -424,6 +449,54 @@ export class Database {
             return result ? result.value : 0;
         } catch (error) {
             return 0;
+        }
+    }
+
+    async addAdminAuditLog({
+        admin_id,
+        action,
+        target_id = null,
+        chat_id = null,
+        thread_id = null,
+        success = true,
+        detail = null
+    }) {
+        try {
+            await this.ensureAuditTable();
+            const stmt = d1.prepare(`
+                INSERT INTO admin_audit_logs (
+                    admin_id, action, target_id, chat_id, thread_id, success, detail, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `);
+            await stmt.bind(
+                admin_id?.toString() || '',
+                action,
+                target_id ? target_id.toString() : null,
+                chat_id ? chat_id.toString() : null,
+                thread_id ? thread_id.toString() : null,
+                success ? 1 : 0,
+                detail,
+                Date.now()
+            ).run();
+        } catch (error) {
+            console.error('Error writing admin audit log:', error);
+        }
+    }
+
+    async getAdminAuditLogs(limit = 20) {
+        try {
+            await this.ensureAuditTable();
+            const stmt = d1.prepare(`
+                SELECT id, admin_id, action, target_id, chat_id, thread_id, success, detail, created_at
+                FROM admin_audit_logs
+                ORDER BY id DESC
+                LIMIT ?
+            `);
+            const result = await stmt.bind(limit).all();
+            return result.results || [];
+        } catch (error) {
+            console.error('Error reading admin audit logs:', error);
+            return [];
         }
     }
 

@@ -92,7 +92,9 @@ export async function handleHelpCommand(message) {
             text += `/maintenance &lt;on/off&gt; - 切换维护模式\n`
             text += `/listadmins - 查看所有管理员\n`
             text += `/refreshspam - 强制刷新远程关键词列表\n`
+            text += `/audit [数量] - 查看最近管理员操作日志\n`
             text += `/lang - 切换管理员界面语言\n`
+            text += `\n🛡 SAFE_MODE 开启时，高风险命令仅所有者可用。\n`
         } else {
             text += `/block <i>or</i> /ban - Block user (reply or /block &lt;id&gt;)\n`
             text += `/unblock <i>or</i> /unban - Unblock user\n`
@@ -115,7 +117,9 @@ export async function handleHelpCommand(message) {
             text += `/maintenance &lt;on/off&gt; - Toggle maintenance mode\n`
             text += `/listadmins - List all admins\n`
             text += `/refreshspam - Force refresh remote spam blocklist\n`
+            text += `/audit [count] - Show recent admin audit logs\n`
             text += `/lang - Switch admin interface language\n`
+            text += `\n🛡 When SAFE_MODE is enabled, high-risk commands are owner-only.\n`
         }
     } else {
         text += zh ? `发送消息即可联系客服。\n` : `Send messages to contact support.\n`
@@ -144,4 +148,3 @@ export async function handleStatsCommand(message) {
 
     await sendMessage({ chat_id: message.chat.id, text, parse_mode: 'HTML' })
 }
-

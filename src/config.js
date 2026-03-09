@@ -29,6 +29,7 @@ export const config = {
     BASE_PATH: '',
     ADMINS: '',
     MAINTENANCE_MESSAGE: 'We are under maintenance. Please try again later.',
+    SAFE_MODE: false,
     PUBLIC_BASE_URL: undefined,
     ENABLE_SPAM_FILTER: true,
     SPAM_KEYWORDS: '操逼赚钱,挖掘花,招聘花,提供设备,代理花,兼职,招探花',
@@ -38,6 +39,8 @@ export const config = {
     GROUP_SPAM_DETECTION: true,
     GROUP_SPAM_ACTION: 'ban',
     GROUP_ADMIN_PERMISSIONS: true,
+    SPAM_BLOCK_THRESHOLD: 3,
+    SPAM_STRIKE_WINDOW_HOURS: 24,
     ENV_LOG_RETENTION_DAYS: 7,
 
     // Advanced Features
@@ -85,6 +88,7 @@ export function initConfig(env) {
     if (typeof env.BASE_PATH !== 'undefined') config.BASE_PATH = env.BASE_PATH
     if (typeof env.ADMINS !== 'undefined') config.ADMINS = env.ADMINS
     if (typeof env.MAINTENANCE_MESSAGE !== 'undefined') config.MAINTENANCE_MESSAGE = env.MAINTENANCE_MESSAGE
+    if (typeof env.SAFE_MODE !== 'undefined') config.SAFE_MODE = env.SAFE_MODE === 'true'
     if (typeof env.PUBLIC_BASE_URL !== 'undefined') config.PUBLIC_BASE_URL = env.PUBLIC_BASE_URL
 
     if (typeof env.ENABLE_SPAM_FILTER !== 'undefined') config.ENABLE_SPAM_FILTER = env.ENABLE_SPAM_FILTER !== 'false'
@@ -96,6 +100,8 @@ export function initConfig(env) {
     if (typeof env.GROUP_SPAM_DETECTION !== 'undefined') config.GROUP_SPAM_DETECTION = env.GROUP_SPAM_DETECTION !== 'false'
     if (typeof env.GROUP_SPAM_ACTION !== 'undefined') config.GROUP_SPAM_ACTION = env.GROUP_SPAM_ACTION
     if (typeof env.GROUP_ADMIN_PERMISSIONS !== 'undefined') config.GROUP_ADMIN_PERMISSIONS = env.GROUP_ADMIN_PERMISSIONS !== 'false'
+    if (typeof env.SPAM_BLOCK_THRESHOLD !== 'undefined') config.SPAM_BLOCK_THRESHOLD = parseInt(env.SPAM_BLOCK_THRESHOLD) || config.SPAM_BLOCK_THRESHOLD
+    if (typeof env.SPAM_STRIKE_WINDOW_HOURS !== 'undefined') config.SPAM_STRIKE_WINDOW_HOURS = parseInt(env.SPAM_STRIKE_WINDOW_HOURS) || config.SPAM_STRIKE_WINDOW_HOURS
 
     if (typeof env.ENV_LOG_RETENTION_DAYS !== 'undefined') config.ENV_LOG_RETENTION_DAYS = parseInt(env.ENV_LOG_RETENTION_DAYS) || 0
 

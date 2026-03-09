@@ -14,6 +14,7 @@ DROP TABLE IF EXISTS verifications;
 DROP TABLE IF EXISTS whitelists;
 DROP TABLE IF EXISTS spam_keywords;
 DROP TABLE IF EXISTS templates;
+DROP TABLE IF EXISTS admin_audit_logs;
 
 -- Users table
 CREATE TABLE users (
@@ -119,6 +120,22 @@ CREATE TABLE templates (
     key_name TEXT PRIMARY KEY,
     content TEXT NOT NULL
 );
+
+-- Admin audit logs
+CREATE TABLE admin_audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target_id TEXT,
+    chat_id TEXT,
+    thread_id TEXT,
+    success INTEGER NOT NULL DEFAULT 1,
+    detail TEXT,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_admin_audit_created_at ON admin_audit_logs(created_at);
+CREATE INDEX idx_admin_audit_admin_action ON admin_audit_logs(admin_id, action);
 
 -- Spam keywords and remote whitelist cache (single rows)
 CREATE TABLE system_cache (

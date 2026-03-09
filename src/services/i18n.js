@@ -52,6 +52,10 @@ const dict = {
         en: "🚫 Your message has been flagged as spam and you have been blocked.",
         zh: "🚫 您的消息已被标记为垃圾信息，您已被封禁。"
     },
+    spam_warning: {
+        en: "⚠️ Your message was flagged as spam ({COUNT}/{THRESHOLD}). Continued violations will lead to a block.",
+        zh: "⚠️ 您的消息被判定为垃圾信息（{COUNT}/{THRESHOLD}）。继续违规将被封禁。"
+    },
     user_blocked: {
         en: "🚫 You have been blocked by the administrator and cannot send messages.",
         zh: "🚫 您已被管理员封禁，无法发送消息。"
@@ -132,6 +136,8 @@ const dict = {
     admin_spam_refreshing: { en: '🔄 Refreshing remote blocklist...', zh: '🔄 正在刷新远程关键词列表...' },
     admin_spam_refreshed: { en: '✅ Blocklist refreshed! Total keywords: {COUNT}', zh: '✅ 关键词列表已刷新！当前共有 {COUNT} 个关键词' },
     admin_spam_refresh_fail: { en: '❌ Refresh failed: {MSG}', zh: '❌ 刷新失败：{MSG}' },
+    admin_safe_mode_blocked: { en: '🛡 SAFE_MODE is enabled. This command is owner-only.', zh: '🛡 已开启 SAFE_MODE。该命令仅限所有者执行。' },
+    admin_audit_empty: { en: 'No admin audit logs yet.', zh: '暂无管理员审计日志。' },
 
 };
 
