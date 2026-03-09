@@ -345,7 +345,8 @@ export async function handleHealthCheck() {
         config: {
             mode: config.ADMIN_GROUP_ID ? 'topic' : 'legacy',
             bot_token_set: !!config.TOKEN,
-            d1_set: !!d1
+            d1_set: !!d1,
+            admin_uid_set: !!config.ADMIN_UID
         }
     }, null, 2), { headers: { 'content-type': 'application/json' } })
 }

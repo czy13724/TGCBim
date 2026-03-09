@@ -215,6 +215,15 @@ export async function forwardMessageNewMode(message, user, user_id, chat_id) {
 }
 
 export async function forwardMessageOldMode(message, user, user_id, chat_id) {
+    if (!config.ADMIN_UID) {
+        console.error('ADMIN_UID is not configured; cannot forward in legacy mode.')
+        await sendMessage({
+            chat_id,
+            text: 'Service is temporarily unavailable. Please try again later.'
+        }).catch(() => { })
+        return
+    }
+
     let sentMsgId = null;
 
     try {
