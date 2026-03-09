@@ -10,7 +10,7 @@ export const config = {
     SECRET: undefined,
     ADMIN_UID: undefined,
     ADMIN_GROUP_ID: undefined,
-    WELCOME_MESSAGE: 'Welcome! This is your contact bot.',
+    WELCOME_MESSAGE: "Hi,there! This is my contact bot.How it's going？",
     MESSAGE_INTERVAL: 1,
     DELETE_TOPIC_AS_BAN: false,
     MAX_BROADCAST_BATCH: 50,
