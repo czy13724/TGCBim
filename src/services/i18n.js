@@ -86,6 +86,10 @@ const dict = {
         en: "💤 The admin is currently offline (outside business hours). Your message has been recorded and will be replied to as soon as possible.",
         zh: "💤 客服目前已下班/休息，您的留言已记录，我们会在看到后第一时间回复您。"
     },
+    start_fallback: {
+        en: "👋 Hi {NAME}! Welcome to {BOT}.\n\nSend me a message and I will forward it to the admin.",
+        zh: "👋 你好，{NAME}！欢迎使用 {BOT}。\n\n你可以直接发送消息，我会转发给管理员。"
+    },
 
     // KV Storage Limits
     kv_limit_msg: {
@@ -138,6 +142,12 @@ const dict = {
     admin_spam_refresh_fail: { en: '❌ Refresh failed: {MSG}', zh: '❌ 刷新失败：{MSG}' },
     admin_safe_mode_blocked: { en: '🛡 SAFE_MODE is enabled. This command is owner-only.', zh: '🛡 已开启 SAFE_MODE。该命令仅限所有者执行。' },
     admin_audit_empty: { en: 'No admin audit logs yet.', zh: '暂无管理员审计日志。' },
+    admin_maintenance_choose: { en: 'Choose maintenance mode action:', zh: '请选择维护模式操作：' },
+    admin_maintenance_btn_on: { en: 'Turn ON', zh: '开启维护' },
+    admin_maintenance_btn_off: { en: 'Turn OFF', zh: '关闭维护' },
+    admin_maintenance_status: { en: 'Current status: {STATUS}', zh: '当前状态：{STATUS}' },
+    admin_maintenance_status_on: { en: 'ON', zh: '开启' },
+    admin_maintenance_status_off: { en: 'OFF', zh: '关闭' },
 
 };
 

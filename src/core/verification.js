@@ -155,11 +155,21 @@ export async function handleVerificationCallback(callbackQuery) {
         const switchLang = action.split('_')[1];
         if (dbUser) {
             dbUser.pref_lang = switchLang;
+            dbUser.language_code = dbUser.language_code || callbackQuery.from.language_code || null;
             await db.setUser(user_id, dbUser);
         } else {
-            dbUser = { user_id: user_id, pref_lang: switchLang, created_at: Date.now() };
+            dbUser = {
+                user_id: user_id,
+                pref_lang: switchLang,
+                language_code: callbackQuery.from.language_code || null,
+                first_name: callbackQuery.from.first_name || 'User',
+                last_name: callbackQuery.from.last_name || null,
+                username: callbackQuery.from.username || null,
+                created_at: Date.now()
+            };
             await db.setUser(user_id, dbUser);
         }
+        await db.setUserState(user_id, 'user_pref_lang', switchLang).catch(() => { })
         await answerCallbackQuery(callbackQuery.id);
         await sendCaptcha(message.chat.id, user_id, switchLang, message.message_id, null, state.fail_count || 0);
         return true;
@@ -178,6 +188,7 @@ export async function handleVerificationCallback(callbackQuery) {
             const durationMs = (config.VERIFICATION_VALID_HOURS || 2) * 60 * 60 * 1000;
             await db.verifyUser(user_id, durationMs);
             await db.deleteUserState(user_id, VERIFY_STATE_KEY);
+            await db.setUserState(user_id, 'user_pref_lang', lang).catch(() => { })
 
             await editMessage({
                 chat_id: message.chat.id,

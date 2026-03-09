@@ -39,7 +39,8 @@ export async function forwardMessageU2A(message) {
         // 通知用户已被封禁，每天最多通知一次避免刷屏
         try {
             const dbUser = await db.getUser(user.id).catch(() => null)
-            const lang = getLang(dbUser || user)
+            const savedLang = await db.getUserState(user.id, 'user_pref_lang').catch(() => null)
+            const lang = savedLang === 'zh' || savedLang === 'en' ? savedLang : getLang(dbUser || user)
             const today = new Date().toDateString()
             const lastNotified = await db.getUserState(user.id, 'block_notify_date').catch(() => null)
             if (lastNotified !== today) {

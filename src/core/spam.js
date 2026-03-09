@@ -307,7 +307,8 @@ export async function handleSpamDetected(message, user, spamInfo) {
         try {
             let dbUser = null;
             try { dbUser = await db.getUser(user_id); } catch (e) { }
-            const lang = getLang(dbUser || message.from);
+            const savedLang = await db.getUserState(user_id, 'user_pref_lang').catch(() => null)
+            const lang = savedLang === 'zh' || savedLang === 'en' ? savedLang : getLang(dbUser || message.from);
             await sendMessage({
                 chat_id: user_id,
                 text: t('spam_blocked', lang)
@@ -342,7 +343,8 @@ export async function handleSpamDetected(message, user, spamInfo) {
         try {
             let dbUser = null;
             try { dbUser = await db.getUser(user_id); } catch (e) { }
-            const lang = getLang(dbUser || message.from);
+            const savedLang = await db.getUserState(user_id, 'user_pref_lang').catch(() => null)
+            const lang = savedLang === 'zh' || savedLang === 'en' ? savedLang : getLang(dbUser || message.from);
             await sendMessage({
                 chat_id: user_id,
                 text: t('spam_warning', lang, {

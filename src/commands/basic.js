@@ -7,10 +7,13 @@ import { db, tplGet } from '../services/db.js';
 import { sendMessage, getMe } from '../services/telegram.js';
 import { escapeHtml } from '../utils/utils.js';
 import { checkSecurity, updateUserDb } from '../utils/helpers.js';
-import { getLang } from '../services/i18n.js';
+import { getLang, t } from '../services/i18n.js';
 
 export async function handleStart(message) {
     const user = message.from
+    const dbUser = await db.getUser(user.id).catch(() => null)
+    const savedLang = await db.getUserState(user.id, 'user_pref_lang').catch(() => null)
+    const lang = savedLang === 'zh' || savedLang === 'en' ? savedLang : getLang(dbUser || user)
 
     // Check security first
     // 先检查安全
@@ -33,8 +36,9 @@ export async function handleStart(message) {
     }
 
     // Check for custom start message in KV
-    // 在 KV 中检查自定义开始消息
-    let startMsg = await tplGet('start')
+    // 在 KV 中检查自定义开始消息（优先语言版本）
+    let startMsg = await tplGet(`start_${lang}`)
+    if (!startMsg) startMsg = await tplGet('start')
     if (!startMsg) {
         startMsg = config.WELCOME_MESSAGE
     }
@@ -51,7 +55,10 @@ export async function handleStart(message) {
     const botInfo = await getMe()
     const botName = botInfo.result ? botInfo.result.first_name : 'Bot'
 
-    let text = startMsg || `👋 Hi ${escapeHtml(user.first_name)}! Welcome to ${escapeHtml(botName)}.\n\nSend me a message and I will forward it to the admin.`
+    let text = startMsg || t('start_fallback', lang, {
+        NAME: escapeHtml(user.first_name || 'User'),
+        BOT: escapeHtml(botName)
+    })
 
     await sendMessage({
         chat_id: message.chat.id,
@@ -89,7 +96,7 @@ export async function handleHelpCommand(message) {
             text += `/listspam - 查看垃圾关键词列表\n`
             text += `/addspam &lt;关键词&gt; - 添加垃圾关键词\n`
             text += `/removespam &lt;关键词&gt; - 删除垃圾关键词\n`
-            text += `/maintenance &lt;on/off&gt; - 切换维护模式\n`
+            text += `/maintenance - 维护模式面板（按钮开关）\n`
             text += `/listadmins - 查看所有管理员\n`
             text += `/refreshspam - 强制刷新远程关键词列表\n`
             text += `/audit [数量] - 查看最近管理员操作日志\n`
@@ -114,7 +121,7 @@ export async function handleHelpCommand(message) {
             text += `/listspam - List spam keywords\n`
             text += `/addspam &lt;kw&gt; - Add spam keyword\n`
             text += `/removespam &lt;kw&gt; - Remove spam keyword\n`
-            text += `/maintenance &lt;on/off&gt; - Toggle maintenance mode\n`
+            text += `/maintenance - Maintenance panel (button toggle)\n`
             text += `/listadmins - List all admins\n`
             text += `/refreshspam - Force refresh remote spam blocklist\n`
             text += `/audit [count] - Show recent admin audit logs\n`
@@ -144,7 +151,7 @@ export async function handleStatsCommand(message) {
     let text = zh ? `📊 <b>统计信息</b>\n\n` : `📊 <b>Statistics</b>\n\n`
     text += zh
         ? `👤 <b>用户数：</b> ${userCount}\n🚫 <b>已拦截垃圾：</b> ${blockedCount}\n📨 <b>消息总数：</b> ${totalMessages}\n🛠 <b>维护模式：</b> ${maint === 1 ? '开启' : '关闭'}\n`
-        : `� <b>Users:</b> ${userCount}\n�🚫 <b>Spam Blocked:</b> ${blockedCount}\n📨 <b>Messages:</b> ${totalMessages}\n🛠 <b>Maintenance:</b> ${maint === 1 ? 'ON' : 'OFF'}\n`
+        : `👤 <b>Users:</b> ${userCount}\n🚫 <b>Spam Blocked:</b> ${blockedCount}\n📨 <b>Messages:</b> ${totalMessages}\n🛠 <b>Maintenance:</b> ${maint === 1 ? 'ON' : 'OFF'}\n`
 
     await sendMessage({ chat_id: message.chat.id, text, parse_mode: 'HTML' })
 }

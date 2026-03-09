@@ -253,18 +253,98 @@ export async function handleMaintenanceToggle(enable, message) {
     if (!isGlobalAdminOrOwner(message.from.id)) return
     const lang = await getAdminLang(message.from)
     if (await denyIfSafeMode(message, lang, 'maintenance_toggle')) return
+    return setMaintenanceMode(enable, message, lang)
+}
 
-    if (enable) {
-        const stmt = d1.prepare("INSERT INTO counters (key, value) VALUES ('maintenance_mode', 1) ON CONFLICT(key) DO UPDATE SET value = 1");
-        await stmt.run();
-        await logAdminAction(message, 'maintenance_on', null, true)
-        return await sendMessage({ chat_id: message.chat.id, text: t('admin_maintenance_on', lang), reply_to_message_id: message.message_id })
-    } else {
-        const stmt = d1.prepare("INSERT INTO counters (key, value) VALUES ('maintenance_mode', 0) ON CONFLICT(key) DO UPDATE SET value = 0");
-        await stmt.run();
-        await logAdminAction(message, 'maintenance_off', null, true)
-        return await sendMessage({ chat_id: message.chat.id, text: t('admin_maintenance_off', lang), reply_to_message_id: message.message_id })
+async function setMaintenanceMode(enable, message, lang) {
+    const stmt = d1.prepare("INSERT INTO counters (key, value) VALUES ('maintenance_mode', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value");
+    await stmt.bind(enable ? 1 : 0).run();
+    await logAdminAction(message, enable ? 'maintenance_on' : 'maintenance_off', null, true)
+    return await sendMessage({
+        chat_id: message.chat.id,
+        text: enable ? t('admin_maintenance_on', lang) : t('admin_maintenance_off', lang),
+        reply_to_message_id: message.message_id
+    })
+}
+
+function maintenanceKeyboard(lang) {
+    return {
+        inline_keyboard: [[
+            { text: t('admin_maintenance_btn_on', lang), callback_data: 'admin:maint_on' },
+            { text: t('admin_maintenance_btn_off', lang), callback_data: 'admin:maint_off' }
+        ]]
     }
+}
+
+export async function handleMaintenanceCommand(message) {
+    if (!isGlobalAdminOrOwner(message.from.id)) return
+    const lang = await getAdminLang(message.from)
+    if (await denyIfSafeMode(message, lang, 'maintenance_toggle')) return
+
+    const args = message.text.split(/\s+/)
+    const action = (args[1] || '').toLowerCase()
+    if (action === 'on') return handleMaintenanceToggle(true, message)
+    if (action === 'off') return handleMaintenanceToggle(false, message)
+
+    const current = await db.getCounter('maintenance_mode')
+    const statusText = current === 1 ? t('admin_maintenance_status_on', lang) : t('admin_maintenance_status_off', lang)
+    return sendMessage({
+        chat_id: message.chat.id,
+        text: `${t('admin_maintenance_choose', lang)}\n${t('admin_maintenance_status', lang, { STATUS: statusText })}`,
+        reply_markup: maintenanceKeyboard(lang),
+        reply_to_message_id: message.message_id
+    })
+}
+
+export async function handleMaintenanceCallback(callbackQuery) {
+    const data = callbackQuery?.data || ''
+    if (!data.startsWith('admin:maint_')) return false
+
+    const fakeMessage = {
+        from: callbackQuery.from,
+        chat: callbackQuery.message?.chat || {},
+        message_id: callbackQuery.message?.message_id,
+        message_thread_id: callbackQuery.message?.message_thread_id,
+        text: '/maintenance'
+    }
+
+    if (!isGlobalAdminOrOwner(callbackQuery.from.id)) {
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_unauthorized', getLang(callbackQuery.from)), show_alert: true })
+        return true
+    }
+
+    const lang = await getAdminLang(callbackQuery.from)
+    if (await denyIfSafeMode(fakeMessage, lang, 'maintenance_toggle')) {
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_safe_mode_blocked', lang), show_alert: true })
+        return true
+    }
+
+    const enable = data === 'admin:maint_on'
+    const stmt = d1.prepare("INSERT INTO counters (key, value) VALUES ('maintenance_mode', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    await stmt.bind(enable ? 1 : 0).run()
+    await db.addAdminAuditLog({
+        admin_id: callbackQuery.from.id,
+        action: enable ? 'maintenance_on' : 'maintenance_off',
+        target_id: null,
+        chat_id: callbackQuery.message?.chat?.id,
+        thread_id: callbackQuery.message?.message_thread_id,
+        success: true,
+        detail: 'inline_button'
+    })
+
+    await answerCallbackQuery(callbackQuery.id, {
+        text: enable ? t('admin_maintenance_on', lang) : t('admin_maintenance_off', lang),
+        show_alert: false
+    })
+
+    const statusText = enable ? t('admin_maintenance_status_on', lang) : t('admin_maintenance_status_off', lang)
+    await editMessage({
+        chat_id: callbackQuery.message.chat.id,
+        message_id: callbackQuery.message.message_id,
+        text: `${t('admin_maintenance_choose', lang)}\n${t('admin_maintenance_status', lang, { STATUS: statusText })}`,
+        reply_markup: maintenanceKeyboard(lang)
+    }).catch(() => { })
+    return true
 }
 
 export async function handleTemplateCommand(message) {
@@ -322,8 +402,8 @@ export async function handleUserInfoCommand(message) {
     const isBlocked = await db.isUserBlocked(targetUser.user_id)
 
     const labels = lang === 'zh'
-        ? { title: '👤 <b>用户信息</b>', id: 'ID', name: '姓名', username: '用户名', created: '注册时间', status: '状态', blocked: '🔴 已封禁', active: '� 正常' }
-        : { title: '�👤 <b>User Info</b>', id: 'ID', name: 'Name', username: 'Username', created: 'Created', status: 'Status', blocked: '🔴 Blocked', active: '🟢 Active' }
+        ? { title: '👤 <b>用户信息</b>', id: 'ID', name: '姓名', username: '用户名', created: '注册时间', status: '状态', blocked: '🔴 已封禁', active: '🟢 正常' }
+        : { title: '👤 <b>User Info</b>', id: 'ID', name: 'Name', username: 'Username', created: 'Created', status: 'Status', blocked: '🔴 Blocked', active: '🟢 Active' }
 
     let info = `${labels.title}\n`
     info += `${labels.id}: <code>${targetUser.user_id}</code>\n`
@@ -483,11 +563,12 @@ export async function handleAuditCommand(message) {
 
     const title = lang === 'zh' ? `🧾 最近管理员操作（${rows.length}条）\n` : `🧾 Recent Admin Actions (${rows.length})\n`
     const lines = rows.map(row => {
-        const time = new Date(row.created_at).toISOString().replace('T', ' ').slice(0, 19)
+        const time = new Date(row.created_at).toISOString().slice(11, 19)
         const ok = row.success ? 'OK' : 'FAIL'
-        const target = row.target_id ? ` target=${row.target_id}` : ''
-        const detail = row.detail ? ` detail=${row.detail}` : ''
-        return `${time} #${row.id} admin=${row.admin_id} ${row.action}${target} ${ok}${detail}`
+        const target = row.target_id ? ` -> ${row.target_id}` : ''
+        let detail = row.detail ? ` (${row.detail})` : ''
+        if (detail.length > 64) detail = `${detail.slice(0, 64)}...)`
+        return `#${row.id} ${time} ${row.action}${target} ${ok}${detail}`
     })
 
     return sendMessage({

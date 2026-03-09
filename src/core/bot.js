@@ -5,7 +5,7 @@
 import { config, isGlobalAdminOrOwner, isOwner } from '../config.js';
 import { db, d1 } from '../services/db.js';
 import { requestTelegram, sendMessage, answerCallbackQuery, getRateLimitStatus, isGroupAdmin } from '../services/telegram.js';
-import { handleStart, handleBroadcastCommand, handleBlockCommand, handleUnblockCommand, handleCheckBlockCommand, handleClearCommand, handleCloseCommand, handleReopenCommand, handleStatsCommand, handleHelpCommand, handleMaintenanceToggle, handleTemplateCommand, handleUserInfoCommand, handleUidCommand, handleSpamCommand, handleWhitelistCommand, handleLangCommand, handleLangCallback, handleAuditCommand } from '../commands/index.js';
+import { handleStart, handleBroadcastCommand, handleBlockCommand, handleUnblockCommand, handleCheckBlockCommand, handleClearCommand, handleCloseCommand, handleReopenCommand, handleStatsCommand, handleHelpCommand, handleMaintenanceCommand, handleTemplateCommand, handleUserInfoCommand, handleUidCommand, handleSpamCommand, handleWhitelistCommand, handleLangCommand, handleLangCallback, handleAuditCommand, handleMaintenanceCallback } from '../commands/index.js';
 import { forwardMessageU2A, forwardMessageA2U, handleOldModeAdminReply, handleEditedMessage } from './messages.js';
 import { handleGroupSpam } from './spam.js';
 import { checkInactiveTopics, handleBotMentionOrReply } from '../utils/helpers.js';
@@ -78,9 +78,7 @@ export async function onUpdate(update, extra = {}) {
                         case '/stats': return await handleStatsCommand(message)
                         case '/help': return await handleHelpCommand(message)
                         case '/maintenance':
-                            if (commandParts[1] === 'on') return await handleMaintenanceToggle(true, message)
-                            if (commandParts[1] === 'off') return await handleMaintenanceToggle(false, message)
-                            return sendMessage({ chat_id, text: t('admin_maintenance_usage', getLang(user)), reply_to_message_id: message.message_id })
+                            return await handleMaintenanceCommand(message)
                         case '/userinfo': return await handleUserInfoCommand(message)
                         case '/whitelist': return await handleWhitelistCommand(message)
                         case '/white':
@@ -261,6 +259,11 @@ export async function onUpdate(update, extra = {}) {
             // 路由语言偏好切换回调
             if (callbackQuery.data?.startsWith('admin_lang:')) {
                 await handleLangCallback(callbackQuery)
+                return
+            }
+
+            if (callbackQuery.data?.startsWith('admin:maint_')) {
+                await handleMaintenanceCallback(callbackQuery)
                 return
             }
 
