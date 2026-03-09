@@ -50,7 +50,7 @@ MAINTENANCE_MESSAGE = "We are under maintenance. Please try again later."
 SPAM_KEYWORDS = "操逼赚钱,挖掘花,招聘花,提供设备,代理花,兼职,招探花"
 
 # 【常改】远程垃圾关键词黑名单 URL / Remote spam blocklist URL
-SPAM_BLOCKLIST_URL = "https://raw.githubusercontent.com/levi4212/TgContactBot/master/blocklist.txt"
+SPAM_BLOCKLIST_URL = "https://raw.githubusercontent.com/your-org/TgContactBot/master/blocklist.txt"
 
 # 【偶改】是否启用垃圾过滤 / Enable spam filter
 ENABLE_SPAM_FILTER = "true"
