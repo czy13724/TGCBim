@@ -5,7 +5,7 @@
 import { config, isGlobalAdminOrOwner, isOwner } from '../config.js';
 import { db, d1 } from '../services/db.js';
 import { requestTelegram, sendMessage, answerCallbackQuery, getRateLimitStatus, isGroupAdmin } from '../services/telegram.js';
-import { handleStart, handleBroadcastCommand, handleBlockCommand, handleUnblockCommand, handleCheckBlockCommand, handleClearCommand, handleCloseCommand, handleReopenCommand, handleStatsCommand, handleHelpCommand, handleMaintenanceCommand, handleTemplateCommand, handleUserInfoCommand, handleUidCommand, handleSpamCommand, handleWhitelistCommand, handleLangCommand, handleLangCallback, handleAuditCommand, handleMaintenanceCallback } from '../commands/index.js';
+import { handleStart, handleBroadcastCommand, handleBlockCommand, handleUnblockCommand, handleCheckBlockCommand, handleClearCommand, handleCloseCommand, handleReopenCommand, handleStatsCommand, handleHelpCommand, handleMaintenanceCommand, handleTemplateCommand, handleUserInfoCommand, handleUidCommand, handleSpamCommand, handleWhitelistCommand, handleLangCommand, handleLangCallback, handleAuditCommand, handleMaintenanceCallback, handleAuditCallback } from '../commands/index.js';
 import { forwardMessageU2A, forwardMessageA2U, handleOldModeAdminReply, handleEditedMessage } from './messages.js';
 import { handleGroupSpam } from './spam.js';
 import { checkInactiveTopics, handleBotMentionOrReply } from '../utils/helpers.js';
@@ -189,8 +189,18 @@ export async function onUpdate(update, extra = {}) {
             const callbackQuery = update.callback_query;
             const data = callbackQuery.data;
 
+            if (callbackQuery.data?.startsWith('admin:maint_')) {
+                await handleMaintenanceCallback(callbackQuery)
+                return
+            }
+
+            if (callbackQuery.data?.startsWith('admin:audit:')) {
+                await handleAuditCallback(callbackQuery)
+                return
+            }
+
             // Admin Actions
-                    if (data && data.startsWith('admin:')) {
+            if (data && data.startsWith('admin:')) {
                 const isAdmin = isGlobalAdminOrOwner(callbackQuery.from.id) ||
                     (config.ADMIN_GROUP_ID && await isGroupAdmin(config.ADMIN_GROUP_ID, callbackQuery.from.id));
 
@@ -248,6 +258,11 @@ export async function onUpdate(update, extra = {}) {
                             text: t('admin_whitelist_added', adminLang, { UID: targetUid }),
                             show_alert: true
                         });
+                    } else {
+                        await answerCallbackQuery(callbackQuery.id, {
+                            text: 'Unsupported action',
+                            show_alert: false
+                        });
                     }
                 } else {
                     const adminLang = getLang(callbackQuery.from)
@@ -263,11 +278,6 @@ export async function onUpdate(update, extra = {}) {
             // 路由语言偏好切换回调
             if (callbackQuery.data?.startsWith('admin_lang:')) {
                 await handleLangCallback(callbackQuery)
-                return
-            }
-
-            if (callbackQuery.data?.startsWith('admin:maint_')) {
-                await handleMaintenanceCallback(callbackQuery)
                 return
             }
 

@@ -317,46 +317,51 @@ export async function handleMaintenanceCallback(callbackQuery) {
     }
 
     const lang = await getAdminLang(callbackQuery.from)
-    if (await denyIfSafeMode(fakeMessage, lang, 'maintenance_toggle')) {
-        await answerCallbackQuery(callbackQuery.id, { text: t('admin_safe_mode_blocked', lang), show_alert: true })
-        return true
-    }
+    try {
+        if (await denyIfSafeMode(fakeMessage, lang, 'maintenance_toggle')) {
+            await answerCallbackQuery(callbackQuery.id, { text: t('admin_safe_mode_blocked', lang), show_alert: true })
+            return true
+        }
 
-    const enable = data === 'admin:maint_on'
-    const current = await db.getCounter('maintenance_mode')
-    if ((enable && current === 1) || (!enable && current === 0)) {
+        const enable = data === 'admin:maint_on'
+        const current = await db.getCounter('maintenance_mode')
+        if ((enable && current === 1) || (!enable && current === 0)) {
+            await answerCallbackQuery(callbackQuery.id, {
+                text: enable ? t('admin_maintenance_already_on', lang) : t('admin_maintenance_already_off', lang),
+                show_alert: false
+            })
+            return true
+        }
+
+        const stmt = d1.prepare("INSERT INTO counters (key, value) VALUES ('maintenance_mode', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        await stmt.bind(enable ? 1 : 0).run()
+        await db.addAdminAuditLog({
+            admin_id: callbackQuery.from.id,
+            action: enable ? 'maintenance_on' : 'maintenance_off',
+            target_id: null,
+            chat_id: callbackQuery.message?.chat?.id,
+            thread_id: callbackQuery.message?.message_thread_id,
+            success: true,
+            detail: 'inline_button'
+        })
+
         await answerCallbackQuery(callbackQuery.id, {
-            text: enable ? t('admin_maintenance_already_on', lang) : t('admin_maintenance_already_off', lang),
+            text: enable ? t('admin_maintenance_on', lang) : t('admin_maintenance_off', lang),
             show_alert: false
         })
+
+        const statusText = enable ? t('admin_maintenance_status_on', lang) : t('admin_maintenance_status_off', lang)
+        await editMessage({
+            chat_id: callbackQuery.message.chat.id,
+            message_id: callbackQuery.message.message_id,
+            text: `${t('admin_maintenance_choose', lang)}\n${t('admin_maintenance_status', lang, { STATUS: statusText })}`,
+            reply_markup: maintenanceKeyboard(lang)
+        }).catch(() => { })
+        return true
+    } catch (e) {
+        await answerCallbackQuery(callbackQuery.id, { text: t('admin_error', lang, { MSG: 'callback failed' }), show_alert: false }).catch(() => { })
         return true
     }
-
-    const stmt = d1.prepare("INSERT INTO counters (key, value) VALUES ('maintenance_mode', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
-    await stmt.bind(enable ? 1 : 0).run()
-    await db.addAdminAuditLog({
-        admin_id: callbackQuery.from.id,
-        action: enable ? 'maintenance_on' : 'maintenance_off',
-        target_id: null,
-        chat_id: callbackQuery.message?.chat?.id,
-        thread_id: callbackQuery.message?.message_thread_id,
-        success: true,
-        detail: 'inline_button'
-    })
-
-    await answerCallbackQuery(callbackQuery.id, {
-        text: enable ? t('admin_maintenance_on', lang) : t('admin_maintenance_off', lang),
-        show_alert: false
-    })
-
-    const statusText = enable ? t('admin_maintenance_status_on', lang) : t('admin_maintenance_status_off', lang)
-    await editMessage({
-        chat_id: callbackQuery.message.chat.id,
-        message_id: callbackQuery.message.message_id,
-        text: `${t('admin_maintenance_choose', lang)}\n${t('admin_maintenance_status', lang, { STATUS: statusText })}`,
-        reply_markup: maintenanceKeyboard(lang)
-    }).catch(() => { })
-    return true
 }
 
 export async function handleTemplateCommand(message) {
@@ -567,15 +572,32 @@ export async function handleAuditCommand(message) {
     const args = message.text.split(/\s+/)
     const requested = Number.parseInt(args[1] || '1', 10)
     const page = Number.isFinite(requested) ? Math.max(requested, 1) : 1
+    return renderAuditPage({
+        lang,
+        page,
+        chat_id: message.chat.id,
+        reply_to_message_id: message.message_id
+    })
+}
+
+function auditKeyboard(page, totalPages) {
+    const row = []
+    if (page > 1) row.push({ text: '⬅️ Prev', callback_data: `admin:audit:${page - 1}` })
+    row.push({ text: `${page}/${totalPages}`, callback_data: 'admin:audit:noop' })
+    if (page < totalPages) row.push({ text: 'Next ➡️', callback_data: `admin:audit:${page + 1}` })
+    return { inline_keyboard: [row] }
+}
+
+async function renderAuditPage({ lang, page, chat_id, reply_to_message_id = null, message_id = null }) {
     const pageSize = 10
     const total = await db.getAdminAuditLogCount()
     const totalPages = Math.max(1, Math.ceil(total / pageSize))
-    const normalizedPage = Math.min(page, totalPages)
+    const normalizedPage = Math.min(Math.max(page, 1), totalPages)
     const offset = (normalizedPage - 1) * pageSize
-
     const rows = await db.getAdminAuditLogs(pageSize, offset)
+
     if (!rows.length) {
-        return sendMessage({ chat_id: message.chat.id, text: t('admin_audit_empty', lang), reply_to_message_id: message.message_id })
+        return sendMessage({ chat_id, text: t('admin_audit_empty', lang), reply_to_message_id })
     }
 
     const title = lang === 'zh'
@@ -590,11 +612,42 @@ export async function handleAuditCommand(message) {
         return `#${row.id} ${time} ${row.action}${target} ${ok}${detail}`
     })
 
-    return sendMessage({
-        chat_id: message.chat.id,
+    const payload = {
+        chat_id,
         text: `${title}${lines.join('\n')}`.slice(0, 3900),
-        reply_to_message_id: message.message_id
-    })
+        reply_markup: auditKeyboard(normalizedPage, totalPages)
+    }
+    if (message_id) {
+        payload.message_id = message_id
+        return editMessage(payload)
+    }
+    if (reply_to_message_id) payload.reply_to_message_id = reply_to_message_id
+    return sendMessage(payload)
+}
+
+export async function handleAuditCallback(callbackQuery) {
+    const data = callbackQuery?.data || ''
+    if (!data.startsWith('admin:audit:')) return false
+    const lang = await getAdminLang(callbackQuery.from)
+
+    if (data === 'admin:audit:noop') {
+        await answerCallbackQuery(callbackQuery.id, { text: ' ' })
+        return true
+    }
+
+    try {
+        const page = Number.parseInt(data.split(':')[2] || '1', 10)
+        await renderAuditPage({
+            lang,
+            page: Number.isFinite(page) ? page : 1,
+            chat_id: callbackQuery.message.chat.id,
+            message_id: callbackQuery.message.message_id
+        })
+        await answerCallbackQuery(callbackQuery.id, { text: 'OK' })
+    } catch {
+        await answerCallbackQuery(callbackQuery.id, { text: 'Failed', show_alert: false }).catch(() => { })
+    }
+    return true
 }
 
 export async function handleWhitelistCommand(message) {
