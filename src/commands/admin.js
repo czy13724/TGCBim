@@ -409,28 +409,28 @@ export async function handleListAdminsCommand(message) {
     const fixedAdmins = Array.from(parseAdmins(config.ADMINS))
     const dynamicAdmins = getRuntimeAdmins()
 
-    let text = zh ? '👥 <b>Bot 管理员</b>\n\n' : '👥 <b>Bot Administrators</b>\n\n'
-    text += (zh ? '👑 <b>所有者：</b>' : '👑 <b>Owner:</b>') + ` <code>${escapeHtml(normalizeId(config.ADMIN_UID))}</code>\n\n`
+    let text = zh ? '👥 Bot 管理员\n\n' : '👥 Bot Administrators\n\n'
+    text += (zh ? '👑 所有者：' : '👑 Owner:') + ` ${normalizeId(config.ADMIN_UID)}\n\n`
 
-    text += (zh ? '🔧 <b>固定管理员：</b>\n' : '🔧 <b>Fixed Admins:</b>\n')
+    text += (zh ? '🔧 固定管理员：\n' : '🔧 Fixed Admins:\n')
     if (fixedAdmins.length) {
-        fixedAdmins.forEach(id => { text += `  • <code>${escapeHtml(id)}</code>\n` })
+        fixedAdmins.forEach(id => { text += `  • ${id}\n` })
     } else {
-        text += zh ? '  • <i>无</i>\n' : '  • <i>None</i>\n'
+        text += zh ? '  • 无\n' : '  • None\n'
     }
 
-    text += `\n${zh ? '⚙️ <b>动态管理员：</b>\n' : '⚙️ <b>Dynamic Admins:</b>\n'}`
+    text += `\n${zh ? '⚙️ 动态管理员：\n' : '⚙️ Dynamic Admins:\n'}`
     if (dynamicAdmins.length) {
-        dynamicAdmins.forEach(id => { text += `  • <code>${escapeHtml(id)}</code>\n` })
+        dynamicAdmins.forEach(id => { text += `  • ${id}\n` })
     } else {
-        text += zh ? '  • <i>无</i>\n' : '  • <i>None</i>\n'
+        text += zh ? '  • 无\n' : '  • None\n'
     }
 
     if (isOwner(message.from.id)) {
         text += zh ? '\n用法：/addadmin <uid>，/removeadmin <uid>' : '\nUsage: /addadmin <uid>, /removeadmin <uid>'
     }
 
-    return sendMessage({ chat_id: message.chat.id, text, parse_mode: 'HTML', reply_to_message_id: message.message_id })
+    return sendMessage({ chat_id: message.chat.id, text, reply_to_message_id: message.message_id })
 }
 
 export async function handleMaintenanceToggle(enable, message) {
