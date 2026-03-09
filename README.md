@@ -582,7 +582,7 @@ refreshspam - 从远程刷新黑名单 / Refresh blocklist
 | `/maintenance on` | 开启维护模式（用户收到维护提示） |
 | `/maintenance off` | 关闭维护模式 |
 | `/audit [page]` | 查看管理员审计日志（分页） |
-| `/audit <all&#124;ban&#124;whitelist&#124;clear&#124;broadcast> [page]` | 按动作筛选审计日志 |
+| `/audit <all/ban/whitelist/clear/broadcast> [page]` | 按动作筛选审计日志 |
 | `/spamstats` | 垃圾拦截统计 |
 | `/listspam` | 查看垃圾关键词列表（按钮分页、来源标记） |
 | `/spamhealth` | 远程词库健康检查（本地/远程/合并统计） |
