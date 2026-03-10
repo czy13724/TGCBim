@@ -49,6 +49,7 @@ TGCBim/
 | ⭐ 方法一：Wrangler CLI | Local CLI Deploy | 初次部署，完整控制 |
 | 🤖 方法二：GitHub Actions | CI/CD Auto-Deploy | 长期维护，推送即部署 |
 | 🌐 方法三：CF Dashboard | Dashboard-Assisted | 无需本地环境，网页操作 |
+| 🚀 方法四：一键部署到 Cloudflare | One-click Deploy | 快速体验 / Quick start |
 
 ---
 
@@ -62,6 +63,22 @@ TGCBim/
 **获取你的 Telegram UID / Get Your Telegram UID**
 
 - 发消息给 [@userinfobot](https://t.me/userinfobot)，获取你的数字 **User ID**（如 `YOUR_ADMIN_UID`）
+
+---
+
+## 方法四：一键部署到 Cloudflare（最快）
+
+点击下方按钮即可一键部署（会在你的 GitHub 上克隆仓库并创建 Worker，自动配置所需资源）：
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/czy13724/TGCBim)
+
+部署完成后，请在 Cloudflare 控制台补充必要的 Secrets（如 `BOT_TOKEN`、`BOT_SECRET`、`ADMIN_UID`），然后访问：
+
+```
+https://tgcbim.yourname.workers.dev/registerWebhook
+```
+
+> 说明：该按钮仅支持 **公开** GitHub/GitLab 仓库，并且只适用于 Workers 应用。
 
 ---
 
