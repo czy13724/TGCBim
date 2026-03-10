@@ -28,7 +28,7 @@ database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 # ADMIN_UID = "123456789"
 
 # 【常改】欢迎语，新用户发 /start 时显示 / Welcome message shown to new users
-WELCOME_MESSAGE = "Hi,there! This is my contact bot.How it's going？"
+WELCOME_MESSAGE = "Hi, there! This is my contact bot. How it's going?"
 
 # 【常改】维护模式提示语 / Message shown during maintenance mode
 MAINTENANCE_MESSAGE = "We are under maintenance. Please try again later."
