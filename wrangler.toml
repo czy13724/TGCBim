@@ -1,11 +1,12 @@
 name = "tgcbim"
 main = "index.js"
 compatibility_date = "2024-02-28"
+account_id = "REDACTED_ACCOUNT_ID"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "tgcbim"
-database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+database_id = "REDACTED_DATABASE_ID"
 
 # ==============================================================
 # ⚠️  密钥 SECRETS — 不要写在这里！
@@ -25,7 +26,7 @@ database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 # 【常改】Bot 所有者 Telegram 用户 ID / Bot owner Telegram user ID
 # ⚠️  推荐通过 GitHub Secrets (ADMIN_UID) 或 CF Dashboard Secrets 注入，避免暴露在公开仓库
 # Recommended: inject via GitHub Secret or CF Dashboard Secret instead of hardcoding here
-# ADMIN_UID = "123456789"
+ADMIN_UID = "REDACTED_ADMIN_UID"
 
 # 【常改】欢迎语，新用户发 /start 时显示 / Welcome message shown to new users
 WELCOME_MESSAGE = "Hi, there! This is my contact bot. How it's going?"
