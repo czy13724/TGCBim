@@ -80,6 +80,8 @@ https://tgcbim.yourname.workers.dev/registerWebhook
 
 > 说明：该按钮仅支持 **公开** GitHub/GitLab 仓库，并且只适用于 Workers 应用。
 
+> 💡 已启用 Cloudflare Builds 的用户：若 `wrangler.toml` 中 `database_id` 为占位符，请在 Builds 中通过构建命令注入真实 ID。
+
 ---
 
 ## 方法一：Wrangler CLI 本地部署（推荐初次部署）
